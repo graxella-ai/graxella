@@ -1,0 +1,17 @@
+{
+  "name": "coder-agent",
+  "description": "Writes, refactors, and debugs Python code.",
+  "url": "https://coder-agent.example.com/a2a",
+  "version": "0.1.0",
+  "defaultInputModes": ["text"],
+  "defaultOutputModes": ["text"],
+  "skills": [
+    {
+      "id": "python_code",
+      "name": "Write Python",
+      "description": "Write Python functions, refactor, and debug.",
+      "tags": ["code", "python", "programming", "refactor"],
+      "examples": ["Write a function to dedupe a list"]
+    }
+  ]
+}

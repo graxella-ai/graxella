@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / build
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+
+# Environments — one uv-managed .venv at the root; parked/legacy ones too
+.venv/
+.venv-*/
+venv/
+env/
+.env
+
+# Tooling
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# Runtime artifacts — the ledger and route stores are data, not source
+*.db
+.graxella/
+graxella-*-routes.jsonl
+
+# Examples — runtime artifacts land in _artifacts and stay local
+examples/_artifacts/
+examples/*.jsonld
+examples/proposals.json
+examples/rulebook_*.json
+
+# Archived nested git history (agent2society pre-monorepo)
+_archived.git/
+
+# IDE
+.idea/
+.vscode/
+.claude/settings.local.json
+
+# Office temp
+~$*.pptx
+~$*.docx

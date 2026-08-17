@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Run-time artifacts (regenerated on every run)
+audit_log.jsonl
+*.log

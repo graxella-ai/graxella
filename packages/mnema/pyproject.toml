@@ -1,0 +1,52 @@
+[project]
+name = "mnema"
+version = "0.0.0"
+description = "Mnema: an experiential-memory runtime for autonomous agents. Assertions in, beliefs out, audit always."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" } # D3: runtime license deferred; LTCF-Bench ships Apache-2.0 separately
+authors = [{ name = "Graxella Technologies" }]
+dependencies = [
+  "pydantic>=2.7",
+  "pydantic-settings>=2.2",
+  "sqlmodel>=0.0.16",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8",
+  "hypothesis>=6.100",
+  "ruff>=0.4",
+  "mypy>=1.10",
+]
+embed = [
+  "sentence-transformers>=3.0",
+  "sqlite-vec>=0.1",
+]
+
+[project.scripts]
+mnema = "mnema.cli.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mnema"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["mnema"]

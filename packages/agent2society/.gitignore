@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Build artifacts (regenerated via `python -m build`)
+dist/
+
+# Virtual envs
+.venv/
+venv/
+env/
+ENV/
+
+# Editors / OS / AI assistants
+.vscode/
+.idea/
+.claude/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Comparison / benchmark outputs (regenerated)
+comparisons/results/
+comparisons/v2/results/
+comparisons/v3/results/
+benchmarks/results/
+demos/a2a_realtime/comparison_output.txt
+demos/a2a_realtime/audit_log.jsonl
+*.log
+
+# Marketing drafts (not for repo)
+agent2society_medium_blog.docx
+agent2society_technical_deck.pptx
+
+# Duplicate notebook at repo root (canonical copy lives in demos/a2a_realtime/)
+/a2a_vs_agent2society.ipynb

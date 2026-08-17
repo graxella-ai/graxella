@@ -1,0 +1,12 @@
+# graxella runtime dependencies
+# Install into a venv:
+#   python -m venv .venv
+#   .venv/Scripts/python -m pip install -r requirements.txt   (Windows)
+#   .venv/bin/python     -m pip install -r requirements.txt   (macOS/Linux)
+
+jsonschema>=4.26
+fastapi>=0.141
+uvicorn>=0.52
+sqlmodel>=0.0.39
+pydantic>=2.13
+pydantic-settings>=2.15

@@ -1,0 +1,7 @@
+include README.md
+include LICENSE
+include pyproject.toml
+recursive-include graxella *.py py.typed
+recursive-exclude graxella *.pyc __pycache__
+recursive-exclude examples *
+recursive-exclude tests *

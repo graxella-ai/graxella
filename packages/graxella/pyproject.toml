@@ -1,0 +1,90 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graxella"
+description = "Graph-native intelligence layer for agent runtimes — self-healing tool dispatch, mined rules, PROV-O audit."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.12"
+authors = [{ name = "Graxella contributors" }]
+keywords = [
+    "agents", "langgraph", "langchain", "mcp",
+    "self-healing", "datalog", "provenance", "audit",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+dynamic = ["version"]
+
+# Honest dependencies (build plan 0C-1, started in S-3): the Beat 1 surface
+# (Memory, Society, mesh, instrument) imports mnema and agent2society at
+# package import time, and the Promotion Spec runs on pydantic. In the
+# monorepo these resolve to the workspace members below; from PyPI they
+# resolve to published wheels.
+dependencies = [
+    "pydantic>=2.7",
+    "jsonschema>=4",   # constitution invariant schemas
+    "mnema",
+    "agent2society",
+]
+
+[tool.uv.sources]
+mnema = { workspace = true }
+agent2society = { workspace = true }
+
+[project.optional-dependencies]
+langgraph = [
+    "langchain-core>=0.3",
+    "langgraph>=0.2",
+]
+ollama = [
+    "langchain-ollama>=0.2",
+]
+mcp = [
+    "mcp>=0.9",
+]
+examples = [
+    "graxella[langgraph,ollama]",
+]
+dev = [
+    "graxella[langgraph,ollama,mcp]",
+    "pytest>=7",
+    "python-pptx>=1.0",
+]
+all = [
+    "graxella[langgraph,ollama,mcp]",
+]
+
+[project.scripts]
+graxella = "graxella.cli.main:main"
+
+[project.urls]
+Homepage = "https://graxella.ai"
+Documentation = "https://graxella.ai/docs"
+Source = "https://github.com/graxella/graxella"
+Issues = "https://github.com/graxella/graxella/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["graxella*"]
+exclude = ["examples*", "tests*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "graxella._version.__version__" }
+
+[tool.setuptools.package-data]
+graxella = ["py.typed"]

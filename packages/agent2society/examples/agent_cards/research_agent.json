@@ -1,0 +1,27 @@
+{
+  "name": "research-agent",
+  "description": "Researches topics on the web, gathers sources, and produces concise summaries.",
+  "url": "https://research-agent.example.com/a2a",
+  "version": "0.1.0",
+  "defaultInputModes": ["text"],
+  "defaultOutputModes": ["text"],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false
+  },
+  "skills": [
+    {
+      "id": "web_research",
+      "name": "Web Research",
+      "description": "Search the web, gather sources, summarise findings on a given topic.",
+      "tags": ["research", "search", "web", "sources", "summary"],
+      "examples": [
+        "Research Q3 customer churn drivers in B2B SaaS",
+        "Find recent regulations affecting fintech in the EU"
+      ],
+      "inputModes": ["text"],
+      "outputModes": ["text"]
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# graxella optional extras -- real LangGraph + Ollama LLM path
+# Install AFTER requirements.txt:
+#   .venv/Scripts/python -m pip install -r requirements-llm.txt   (Windows)
+#   .venv/bin/python     -m pip install -r requirements-llm.txt   (macOS/Linux)
+#
+# Ollama daemon must be running locally with the model pulled:
+#   ollama pull qwen2.5:3b
+#   ollama serve
+
+langgraph>=1.2
+langchain-ollama>=1.1
+langchain-core>=1.5
+
+# Optional: small transformer for graxella.mesh(router="transformer").
+# Skip this line if you're happy with the default TF-IDF router (no deps).
+# First mesh(router="transformer") call downloads ~90 MB MiniLM weights.
+sentence-transformers>=3.0

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "updated_at": 1786650548.4736855,
+  "rules": [
+    {
+      "id": "apr_mcp_hotels_failover",
+      "proposal_id": "prop_mcp_hotels_failover",
+      "kind": "rule",
+      "intent": "",
+      "replace_skill": "mcp_search_hotels_down",
+      "with_skill": "mcp_search_hotels_backup",
+      "recipe": {},
+      "change": {
+        "if_intent": null,
+        "replace_skill": "mcp_search_hotels_down",
+        "with_skill": "mcp_search_hotels_backup",
+        "recipe": {}
+      },
+      "derived_from": [
+        "ops:runbook.md"
+      ],
+      "approved_at": 1786650548.473681,
+      "approved_by": "ops@graxella"
+    }
+  ],
+  "rejected": []
+}

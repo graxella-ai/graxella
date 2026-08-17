@@ -1,0 +1,37 @@
+# Graxella workspace root (build plan task S-3).
+#
+# Virtual project: this root is never built or published — it exists to bind
+# the uv workspace together and host the shared dev environment.
+#
+#   uv sync          → one .venv with graxella + mnema + agent2society editable
+#   uv run pytest    → the graxella core suite (packages/graxella/tests)
+
+[project]
+name = "graxella-workspace"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = ["graxella"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+graxella = { workspace = true }
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "ruff>=0.4",
+    "hypothesis>=6.100",  # mnema's property tests
+]
+
+[tool.pytest.ini_options]
+testpaths = ["packages/graxella/tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["packages/graxella/graxella", "packages/mnema/src", "packages/agent2society/src"]

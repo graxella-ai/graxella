@@ -1,0 +1,27 @@
+{
+  "name": "writer-agent",
+  "description": "Drafts executive memos and short business writing from notes.",
+  "url": "https://writer-agent.example.com/a2a",
+  "version": "0.1.0",
+  "defaultInputModes": ["text"],
+  "defaultOutputModes": ["text"],
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": false,
+    "stateTransitionHistory": false
+  },
+  "skills": [
+    {
+      "id": "exec_memo",
+      "name": "Executive Memo",
+      "description": "Draft an executive memo from notes, findings, or bullet points.",
+      "tags": ["writing", "memo", "exec", "draft", "business"],
+      "examples": [
+        "Draft an exec memo about Q3 churn",
+        "Turn these bullets into a one-page memo"
+      ],
+      "inputModes": ["text"],
+      "outputModes": ["text"]
+    }
+  ]
+}

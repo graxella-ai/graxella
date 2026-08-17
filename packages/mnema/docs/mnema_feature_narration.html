@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mnema — Feature Narration</title>
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #161b27;
+    --card: #1e2535;
+    --border: #2a3350;
+    --accent: #4f8ef7;
+    --accent2: #7c5cbf;
+    --green: #3dd68c;
+    --red: #f76f6f;
+    --yellow: #f7c94f;
+    --text: #e8eaf2;
+    --muted: #7a85a3;
+    --font: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+    line-height: 1.7;
+  }
+  /* ── Header ── */
+  .hero { margin-bottom: 56px; }
+  .eyebrow {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px; font-weight: 600;
+  }
+  h1 { font-size: 42px; font-weight: 800; line-height: 1.1; }
+  .subtitle { font-size: 16px; color: var(--muted); margin-top: 10px; }
+  .hero-rule {
+    width: 48px; height: 4px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px; margin-bottom: 16px;
+  }
+  /* ── Sections ── */
+  .feature {
+    border-left: 3px solid var(--border);
+    padding-left: 28px;
+    margin-bottom: 52px;
+    position: relative;
+  }
+  .feature::before {
+    content: attr(data-num);
+    position: absolute;
+    left: -20px;
+    top: 0;
+    width: 36px; height: 36px;
+    background: var(--accent);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 14px; color: #fff;
+    line-height: 36px; text-align: center;
+  }
+  .feature.green { border-left-color: var(--green); }
+  .feature.green::before { background: var(--green); color: #000; }
+  .feature.yellow { border-left-color: var(--yellow); }
+  .feature.yellow::before { background: var(--yellow); color: #000; }
+  .feature.purple { border-left-color: var(--accent2); }
+  .feature.purple::before { background: var(--accent2); }
+  h2 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+    margin-bottom: 14px;
+  }
+  .tag-blue   { background: rgba(79,142,247,0.15); color: var(--accent); }
+  .tag-green  { background: rgba(61,214,140,0.15); color: var(--green); }
+  .tag-yellow { background: rgba(247,201,79,0.15); color: var(--yellow); }
+  .tag-purple { background: rgba(124,92,191,0.15); color: var(--accent2); }
+  .tag-red    { background: rgba(247,111,111,0.15); color: var(--red); }
+  p { font-size: 15px; color: var(--text); margin-bottom: 12px; }
+  /* ── Code blocks ── */
+  pre {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    font-size: 13px;
+    font-family: 'Cascadia Code', 'Fira Code', monospace;
+    overflow-x: auto;
+    margin: 14px 0;
+    color: #c9d1d9;
+    line-height: 1.6;
+  }
+  .kw  { color: #ff79c6; }
+  .fn  { color: #50fa7b; }
+  .str { color: #f1fa8c; }
+  .cm  { color: #6272a4; }
+  .num { color: #bd93f9; }
+  /* ── Result box ── */
+  .result {
+    background: #0a1628;
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    font-family: monospace;
+    font-size: 13px;
+    color: var(--green);
+    margin: 14px 0;
+    white-space: pre;
+  }
+  /* ── Why box ── */
+  .why {
+    background: var(--surface);
+    border-left: 3px solid var(--accent2);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+    font-size: 14px;
+    color: var(--muted);
+  }
+  .why strong { color: var(--text); }
+  /* ── Competitor callout ── */
+  .versus {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin: 14px 0;
+    font-size: 14px;
+  }
+  .versus .label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  /* ── Divider ── */
+  hr { border: none; border-top: 1px solid var(--border); margin: 48px 0; }
+  /* ── TOC ── */
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 48px;
+  }
+  .toc h3 { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+  .toc ol { padding-left: 20px; }
+  .toc li { margin-bottom: 6px; font-size: 14px; }
+  .toc a { color: var(--muted); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+  /* ── Section heading ── */
+  .section-bar {
+    font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 28px;
+    padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    margin-top: 48px;
+  }
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-rule"></div>
+  <div class="eyebrow">Graxella Technologies · AiLooms B12 · Feature Narration</div>
+  <h1>Mnema — How Every Feature Works</h1>
+  <p class="subtitle">A plain-language walkthrough of what was built, why each decision was made,<br>and what it beats in the market. Use alongside the comparison deck.</p>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#f1">The WAL — Immutable Belief Ledger</a></li>
+    <li><a href="#f2">Assertions — Typed, Provenance-Linked Facts</a></li>
+    <li><a href="#f3">Sleep-Phase Consolidation — Rules + Skills from Experience</a></li>
+    <li><a href="#f4">Retraction Cascade — Safe Belief Withdrawal</a></li>
+    <li><a href="#f5">Compliance Audit Surface (C1–C5)</a></li>
+    <li><a href="#f6">Typed Temporal Graph — Contradiction Detection</a></li>
+    <li><a href="#f7">Semantic Retrieval — Embedder Stack</a></li>
+    <li><a href="#f8">Digest Injection — Prompt Memory Block</a></li>
+    <li><a href="#f9">MnemaClient SDK — 3-Line Integration</a></li>
+    <li><a href="#f10">E1 Benchmark — Consolidation vs Retrieval vs Frozen</a></li>
+  </ol>
+</div>
+
+<!-- ────────────────────────────── F1 ────────────────────────────── -->
+<div id="f1" class="feature" data-num="1">
+  <h2>The WAL — Immutable Belief Ledger</h2>
+  <span class="tag tag-blue">Core Architecture</span>
+
+  <p>Every change to an agent's knowledge — observing a new fact, revising an old one, retracting a wrong one — is written as an <strong>append-only event</strong> to a Write-Ahead Log (WAL). Nothing is ever deleted. Nothing is ever overwritten.</p>
+
+  <p>This is borrowed from database engineering (Postgres, Kafka) and applied — for the first time — to agent belief management.</p>
+
+  <pre>
+<span class="cm"># Every belief mutation produces a WAL event:</span>
+<span class="fn">ASSERTION_RECORDED</span>   <span class="cm">→ new belief entered</span>
+<span class="fn">ASSERTION_SUPERSEDED</span> <span class="cm">→ belief revised (old version preserved)</span>
+<span class="fn">ASSERTION_RETRACTED</span>  <span class="cm">→ belief withdrawn (still in history)</span>
+<span class="fn">CONSOLIDATION_RUN</span>    <span class="cm">→ sleep phase executed, digest produced</span>
+<span class="fn">RELATIONSHIP_ASSERTED</span><span class="cm">→ contradiction flagged</span>
+<span class="fn">RELATIONSHIP_RESOLVED</span><span class="cm">→ contradiction resolved with note</span>
+  </pre>
+
+  <div class="why">
+    <strong>Why this matters:</strong> Every other memory system uses mutable databases — you can update and delete. That means you can never answer "what did the agent believe yesterday?" or "when exactly did this fact change?" The WAL makes those questions trivially answerable because the full history is always there.
+  </div>
+
+  <div class="versus">
+    <div class="label">vs. competitors</div>
+    Zep uses bi-temporal timestamps (close, but no immutable event log). Mem0, MemGPT, LangMem: mutable stores — history is lost on update.
+  </div>
+</div>
+
+<!-- ────────────────────────────── F2 ────────────────────────────── -->
+<div id="f2" class="feature green" data-num="2">
+  <h2>Assertions — Typed, Provenance-Linked Facts</h2>
+  <span class="tag tag-green">Core Model</span>
+
+  <p>The atomic unit of knowledge in Mnema is not a string or an embedding — it is an <strong>Assertion</strong>: a structured object with identity, provenance, confidence, validity window, and status.</p>
+
+  <pre>
+<span class="kw">class</span> <span class="fn">Assertion</span>:
+    id: str              <span class="cm"># content-addressed SHA-256 — same fact = same id</span>
+    statement: str       <span class="cm"># "Rate limit is 60 rpm"</span>
+    subject: str         <span class="cm"># "api"  (for subject-based retrieval)</span>
+    agent_id: str        <span class="cm"># which agent owns this belief</span>
+    namespace: str       <span class="cm"># logical partition (e.g. "weatherlib")</span>
+    status: active | superseded | retracted
+    supersedes: str      <span class="cm"># id of the assertion this replaced</span>
+    confidence: float    <span class="cm"># 0.0–1.0 (default 0.85 from settings)</span>
+    valid_from: datetime <span class="cm"># when this was true in the world</span>
+    valid_to: datetime   <span class="cm"># when it stopped being true</span>
+    asserted_at: datetime<span class="cm"># when we recorded it (transaction time)</span>
+    provenance: Provenance  <span class="cm"># origin_type + source_id</span>
+  </pre>
+
+  <p>The <strong>content-addressed ID</strong> means the same fact recorded twice gets the same ID — deduplication is structural, not a query. The <strong>supersedes chain</strong> tracks every revision so you can walk the full history of any belief.</p>
+
+  <div class="why">
+    <strong>Why this matters:</strong> Storing facts as raw strings or embeddings loses all structure. You can't ask "which version of this fact are we acting on?" or "was this fact ever revised?" The Assertion model makes those questions answerable by design.
+  </div>
+</div>
+
+<!-- ────────────────────────────── F3 ────────────────────────────── -->
+<div id="f3" class="feature" data-num="3">
+  <h2>Sleep-Phase Consolidation — Rules + Skills from Experience</h2>
+  <span class="tag tag-blue">Cognitive Core</span>
+
+  <p>Inspired by biological memory consolidation during sleep, Mnema runs a <strong>background LLM pass</strong> over all active beliefs and distils them into two typed artifacts:</p>
+
+  <ul style="padding-left:20px; margin: 12px 0; font-size:15px; color:var(--text);">
+    <li style="margin-bottom:8px;"><strong>Rules</strong> — imperative statements the agent should follow: <em>"Use fetch_forecast(city) not get_weather() — removed in v2"</em></li>
+    <li><strong>Skills</strong> — reusable Python functions, AST-validated, sandbox-checked, stored with execution outcomes tracked</li>
+  </ul>
+
+  <p>Both are stored in a <strong>Digest</strong> — a versioned snapshot that is injected into the agent's prompt at inference time. Version 1, 2, 3... each is preserved for audit.</p>
+
+  <pre>
+<span class="cm"># The consolidation flow:</span>
+active_beliefs = store.current_beliefs(agent_id)   <span class="cm"># what it knows now</span>
+rule_proposals = llm.extract_rules(beliefs)         <span class="cm"># LLM distills</span>
+contradiction_proposals = llm.detect_contradictions(beliefs)
+skill_proposals = llm.extract_skills(beliefs)
+digest = Digest(version=n, rules=rules, skills=skills)
+store.save_digest(digest)   <span class="cm"># WAL event + atomic persist</span>
+  </pre>
+
+  <div class="result">Consolidation complete — rules updated to v3
+Rules: 1  Skills: 1  Digest version: 3</div>
+
+  <div class="why">
+    <strong>Why this matters:</strong> Raw observations are noisy — the agent saw 50 API calls, some correct, some from error messages. Consolidation separates signal from noise and produces clean, typed Rules. The E1 benchmark showed this gives a 50-percentage-point lift over raw retrieval on drifting APIs.
+  </div>
+
+  <div class="versus">
+    <div class="label">vs. competitors</div>
+    MemGPT does summarization but produces unstructured text blobs. Mnema produces typed, provenance-linked Rule and Skill objects that can be individually traced, retracted, and versioned.
+  </div>
+</div>
+
+<!-- ────────────────────────────── F4 ────────────────────────────── -->
+<div id="f4" class="feature yellow" data-num="4">
+  <h2>Retraction Cascade — Safe Belief Withdrawal</h2>
+  <span class="tag tag-yellow">Safety Feature</span>
+
+  <p>When a belief is retracted — because it was wrong, outdated, or superseded by new information — Mnema automatically asks: <strong>which Rules and Skills were derived from this belief?</strong> Those are now "at risk."</p>
+
+  <pre>
+<span class="cm"># When you retract a belief:</span>
+client.retract(assertion_id)
+
+<span class="cm"># Mnema traces the dependency graph and returns:</span>
+at_risk = client.retraction_cascade(assertion_id)
+<span class="cm"># → ["rule_abc123", "skill_def456"]</span>
+<span class="cm"># These rules/skills were derived from the retracted fact.</span>
+<span class="cm"># They're not deleted — they're flagged for re-consolidation.</span>
+  </pre>
+
+  <p>The retraction also <strong>auto-resolves any open contradiction</strong> involving the retracted assertion — because if one side of a conflict is gone, the conflict dissolves.</p>
+
+  <div class="why">
+    <strong>Why this matters:</strong> In every other system, retracting a fact leaves orphaned rules silently acting on stale knowledge. The agent keeps calling a removed API endpoint because the Rule was derived from an observation that no longer exists — but nobody told the Rule. Cascade retraction surfaces this risk immediately.
+  </div>
+
+  <div class="versus">
+    <div class="label">vs. competitors</div>
+    No competitor has retraction cascade. Zep, Mem0, MemGPT, LangMem all have mutable memory with no dependency tracking. Orphaned rules are invisible.
+  </div>
+</div>
+
+<!-- ────────────────────────────── F5 ────────────────────────────── -->
+<div id="f5" class="feature green" data-num="5">
+  <h2>Compliance Audit Surface (C1–C5)</h2>
+  <span class="tag tag-green">Enterprise Feature</span>
+
+  <p>Mnema exposes five compliance questions as first-class API endpoints — the questions that regulated industries (finance, healthcare, legal) ask about any autonomous system:</p>
+
+  <pre>
+<span class="fn">C1</span> <span class="cm"># What did the agent believe at time T?</span>
+   inspector.active_at(agent_id, past_datetime)
+   replayer.replay_beliefs_at_seq(agent_id, wal_seq)
+
+<span class="fn">C2</span> <span class="cm"># Which rules were derived from this observation?</span>
+   auditor.why_believed(assertion_id)
+   <span class="cm"># → {assertion_id, wal_events, derived_rules, superseded_by}</span>
+
+<span class="fn">C3</span> <span class="cm"># Which rules are at risk if this fact is retracted?</span>
+   recorder.retraction_cascade(assertion_id)
+
+<span class="fn">C4</span> <span class="cm"># What changed between knowledge version 1 and 2?</span>
+   auditor.digest_diff(agent_id, from_version=1, to_version=2)
+   <span class="cm"># → {added_rules, removed_rules, changed_rules}</span>
+
+<span class="fn">C5</span> <span class="cm"># Full compliance report</span>
+   auditor.compliance_report(agent_id)
+   <span class="cm"># → {total_assertions, wal_events, digest_versions,</span>
+   <span class="cm">#    active_rules, supersession_chains}</span>
+  </pre>
+
+  <div class="result">Compliance Benchmark — Mnema vs Field
+============================================================
+  [PASS] C1_time_travel_beliefs
+  [PASS] C1_seq_replay_correct
+  [PASS] C2_why_believed_returns_data
+  [PASS] C2_derived_rules_traced
+  [PASS] C3_retraction_cascade_runs
+  [PASS] C3_at_risk_rules_identified
+  [PASS] C4_diff_returns_structure
+  [PASS] C4_no_error_key
+  [PASS] C5_report_has_all_fields
+  [PASS] C5_wal_events_nonzero
+  [PASS] C5_supersession_chain_tracked
+  [PASS] BONUS_orphaned_rule_detection
+
+  Score: 12/12 = 100.0%
+
+  Zep:    ~20%   Mem0:  ~5%   MemGPT: ~0%</div>
+
+  <div class="why">
+    <strong>Why this matters:</strong> Regulated industries cannot deploy autonomous agents without an audit trail. Every competitor scores near zero on these questions because they never designed for auditability. Mnema scores 100% because the WAL is the source of truth and all queries are just views over it.
+  </div>
+</div>
+
+<!-- ────────────────────────────── F6 ────────────────────────────── -->
+<div id="f6" class="feature purple" data-num="6">
+  <h2>Typed Temporal Graph — Contradiction Detection + Resolution</h2>
+  <span class="tag tag-purple">Graph Layer · v0.1</span>
+
+  <p>This is the most novel feature built. During sleep-phase consolidation, the LLM scans all active beliefs and flags pairs that <strong>directly contradict each other</strong>. These are stored as <code>contradicts</code> edges in a typed temporal graph.</p>
+
+  <p>A contradiction is not silently discarded — it enters an <strong>OPEN → RESOLVED lifecycle</strong>. The agent should not act on conflicting beliefs until a human or policy resolves the conflict with an explicit note.</p>
+
+  <pre>
+<span class="cm"># Full contradiction lifecycle:</span>
+
+<span class="cm"># 1. LLM detects during consolidation (automatic)</span>
+SleepConsolidator(store, llm).consolidate(agent_id)
+<span class="cm"># → "Detected 1 contradiction: rate limit 100 rpm vs 60 rpm"</span>
+
+<span class="cm"># 2. Surface all open conflicts</span>
+conflicts = client.open_contradictions()
+<span class="cm"># → [{from_statement: "100 rpm", to_statement: "60 rpm",</span>
+<span class="cm">#     reason: "Two conflicting rate limit values."}]</span>
+
+<span class="cm"># 3. Human resolves with a permanent note (audit trail)</span>
+client.resolve_contradiction(
+    rel_id,
+    note=<span class="str">"60 rpm is correct — confirmed in API changelog v2.1."</span>
+)
+
+<span class="cm"># 4. Integrity is clean again</span>
+client.contradiction_summary()
+<span class="cm"># → {knowledge_integrity: "clean", open_contradictions: 0}</span>
+  </pre>
+
+  <div class="result">-- Before consolidation --
+Integrity: clean
+
+-- After consolidation (LLM detected contradiction) --
+Integrity: conflicts_present
+Open contradictions: 1
+
+  Conflict: Two conflicting rate limit values: 100 rpm vs 60 rpm.
+    A: Rate limit is 100 rpm
+    B: Rate limit is 60 rpm
+
+-- After resolution --
+Integrity: clean
+Open contradictions: 0</div>
+
+  <div class="why">
+    <strong>Why this matters:</strong> Every agent that observes a changing world will eventually hold contradictory beliefs. Every existing system lets those contradictions coexist silently — the agent picks one at random depending on retrieval order. Mnema makes contradictions visible, demands resolution, and records who decided and why.
+  </div>
+
+  <div class="versus">
+    <div class="label">vs. competitors</div>
+    Zero competitors have this. Not Zep, not Mem0, not MemGPT, not LangMem. This is a first.
+  </div>
+</div>
+
+<!-- ────────────────────────────── F7 ────────────────────────────── -->
+<div id="f7" class="feature" data-num="7">
+  <h2>Semantic Retrieval — The Embedder Stack</h2>
+  <span class="tag tag-blue">Retrieval</span>
+
+  <p>Mnema ranks active beliefs by semantic similarity to a free-text query, not just exact keyword match. The embedder is pluggable — Mnema auto-selects the best available option at startup:</p>
+
+  <pre>
+<span class="cm"># Priority order (auto-detected at MnemaClient init):</span>
+<span class="num">1.</span> <span class="fn">OllamaEmbedder</span>              <span class="cm"># 768-dim dense, nomic-embed-text</span>
+                              <span class="cm"># True semantic understanding</span>
+                              <span class="cm"># Requires: ollama pull nomic-embed-text</span>
+
+<span class="num">2.</span> <span class="fn">SentenceTransformerEmbedder</span> <span class="cm"># 384-dim, all-MiniLM-L6-v2</span>
+                              <span class="cm"># Local model, no server needed</span>
+                              <span class="cm"># Requires: pip install mnema[embed]</span>
+
+<span class="num">3.</span> <span class="fn">TfidfEmbedder</span>               <span class="cm"># Pure stdlib, always available</span>
+                              <span class="cm"># Bag-of-words fallback</span>
+  </pre>
+
+  <p>The semantic difference is measurable. On a 6-question test with 6 assertions:</p>
+
+  <div class="result">Query: "how do I authenticate with the API?"
+  TF-IDF [0.121 → WRONG doc]  — "authenticate" ≠ "Authentication"
+  Ollama  [0.601 → CORRECT]   — maps synonyms via 768-dim space
+
+Overall accuracy:
+  TF-IDF:  4/6 (67%)
+  Ollama:  5/6 (83%)</div>
+
+  <div class="why">
+    <strong>Why the stack matters:</strong> If Ollama isn't running, the system degrades gracefully to TF-IDF rather than crashing. When Ollama is available (which it is, since it's already running the LLM), you get dense semantic retrieval for free — no new infrastructure, no API key, no cost.
+  </div>
+</div>
+
+<!-- ────────────────────────────── F8 ────────────────────────────── -->
+<div id="f8" class="feature green" data-num="8">
+  <h2>Digest Injection — Prompt Memory Block</h2>
+  <span class="tag tag-green">Integration</span>
+
+  <p>The output of sleep-phase consolidation is a <strong>Digest</strong> — a versioned, character-budget-aware markdown block that is injected into the agent's system prompt at the start of every inference call.</p>
+
+  <p>This is the mechanism that closes the loop: observations go in during experience, the Digest comes out for use during inference.</p>
+
+  <pre>
+<span class="cm"># At agent startup, before any user message:</span>
+memory_block = client.inject()   <span class="cm"># renders latest Digest as markdown</span>
+system_prompt = f<span class="str">"""
+You are an API integration agent.
+
+## What you know:
+{memory_block}
+
+Now answer the user's question.
+"""</span>
+
+<span class="cm"># memory_block contains the distilled rules and skills,</span>
+<span class="cm"># not raw observations — cleaner, more reliable.</span>
+  </pre>
+
+  <p>The character budget is configurable (<code>MNEMA_DIGEST_MAX_CHARS</code>, default 4000) so it never overflows the context window. Older rules are dropped gracefully when the budget is tight.</p>
+</div>
+
+<!-- ────────────────────────────── F9 ────────────────────────────── -->
+<div id="f9" class="feature" data-num="9">
+  <h2>MnemaClient SDK — 3-Line Integration</h2>
+  <span class="tag tag-blue">Developer Experience</span>
+
+  <p>The entire system is accessible through one object. The minimal integration is three lines:</p>
+
+  <pre>
+<span class="kw">from</span> mnema.integrations.sdk <span class="kw">import</span> MnemaClient
+
+client = MnemaClient(agent_id=<span class="str">"my-agent"</span>)  <span class="cm"># auto-selects embedder + LLM</span>
+client.observe(<span class="str">"Rate limit is 60 rpm"</span>, subject=<span class="str">"api"</span>)
+system_prompt += client.inject()             <span class="cm"># inject Digest into prompt</span>
+  </pre>
+
+  <p>The full surface covers every feature:</p>
+
+  <pre>
+<span class="cm"># Core lifecycle</span>
+client.observe(statement, subject=...)       <span class="cm"># record a belief</span>
+client.revise(prior_id, statement=...)       <span class="cm"># update with supersession</span>
+client.retract(assertion_id)                 <span class="cm"># withdraw + auto-cascade</span>
+client.consolidate()                         <span class="cm"># run sleep phase</span>
+client.inject()                              <span class="cm"># get prompt block</span>
+
+<span class="cm"># Retrieval</span>
+client.search(<span class="str">"how do I authenticate?"</span>, top_k=<span class="num">5</span>)  <span class="cm"># semantic search</span>
+
+<span class="cm"># Audit</span>
+client.why(assertion_id)                     <span class="cm"># full provenance chain</span>
+client.diff(v1=<span class="num">1</span>, v2=<span class="num">2</span>)                    <span class="cm"># what changed between digests</span>
+client.report()                              <span class="cm"># full compliance report</span>
+
+<span class="cm"># Graph / contradiction</span>
+client.open_contradictions()                 <span class="cm"># surface all conflicts</span>
+client.resolve_contradiction(rel_id, note=<span class="str">"60 rpm confirmed"</span>)
+client.contradiction_summary()              <span class="cm"># clean or conflicts_present</span>
+
+<span class="cm"># Safety</span>
+client.retraction_cascade(assertion_id)     <span class="cm"># what breaks if I retract this?</span>
+  </pre>
+
+  <div class="why">
+    <strong>Config is all env vars:</strong> <code>MNEMA_DB_URL</code>, <code>MNEMA_OLLAMA_HOST</code>, <code>MNEMA_OLLAMA_MODEL</code>, <code>MNEMA_EMBED_MODEL</code>, <code>MNEMA_API_KEY</code>, <code>MNEMA_DEFAULT_NAMESPACE</code>, <code>MNEMA_DIGEST_MAX_CHARS</code>. No hardcoded values anywhere in the codebase.
+  </div>
+</div>
+
+<!-- ────────────────────────────── F10 ────────────────────────────── -->
+<div id="f10" class="feature yellow" data-num="10">
+  <h2>E1 Benchmark — Consolidation vs Retrieval vs Frozen</h2>
+  <span class="tag tag-yellow">Benchmark Results</span>
+
+  <p>The E1 (LTCF-Bench) experiment measured three arms on a drifting API scenario across three phases:</p>
+
+  <ul style="padding-left:20px; margin:12px 0; font-size:15px;">
+    <li style="margin-bottom:6px;"><strong>A0 — Frozen</strong>: agent with static knowledge, no updates</li>
+    <li style="margin-bottom:6px;"><strong>A1 — Retrieval</strong>: naive last-observation pattern matching</li>
+    <li><strong>A2 — Mnema</strong>: full observe → sleep-consolidate → inject cycle</li>
+  </ul>
+
+  <div class="result">E1: LTCF-Bench — Lifetime Cognitive Fitness Benchmark
+==============================================================
+  Arm       v1 (%)    v2 (%)    v3 (%)     Overall
+  ------------------------------------------------------
+  A0        100.0%      0.0%      0.0%       33.3%
+  A1        100.0%      0.0%    100.0%       66.7%
+  A2        100.0%    100.0%    100.0%      100.0%
+  ------------------------------------------------------
+
+  Consolidation lift (drift phases only):
+    A0: 0.0%    A1: 50.0%    A2: 100.0%
+    A2 lift over A1: +50.0pp  ← the consolidation premium</div>
+
+  <p>Why A1 fails on v2: it sees observations like <em>"get_weather() raised DeprecationWarning"</em> in error context and still pattern-matches to the old API call. Consolidation sees through the noise and produces a clean rule: <strong>"Use fetch_forecast(city) — get_weather() removed in v2."</strong></p>
+
+  <p>Why A2 gets v3 right immediately: the Digest from v2 consolidation is superseded by v3 consolidation. The agent starts every v3 task with the correct rule already in its system prompt.</p>
+
+  <div class="why">
+    <strong>What this proves:</strong> Structured knowledge (typed Rules in a Digest) beats unstructured retrieval on drifting environments. The 50pp consolidation premium is not a tuning artifact — it reflects the fundamental difference between retrieving raw observations and injecting distilled knowledge.
+  </div>
+</div>
+
+<hr>
+
+<div style="text-align:center; padding: 20px 0 40px;">
+  <div class="eyebrow" style="text-align:center;">Tests · Benchmark · Linter</div>
+  <p style="font-size:28px; font-weight:800; margin:10px 0;"><span style="color:var(--green)">105</span> tests passing &nbsp;·&nbsp; <span style="color:var(--green)">12/12</span> compliance &nbsp;·&nbsp; <span style="color:var(--green)">Ruff clean</span></p>
+  <p style="color:var(--muted); font-size:14px;">Mnema v0.0 · Graxella Technologies · AiLooms B12 Memory Intelligence</p>
+</div>
+
+</body>
+</html>

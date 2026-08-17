@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent2society"
+version = "0.5.3"
+description = "Transparent coordination layer for A2A agent meshes: deterministic routing, conflict detection, governance hooks, and a human-readable explanation for every decision."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "agent2society contributors" }]
+maintainers = [{ name = "agent2society contributors" }]
+keywords = [
+    "a2a",
+    "agent2agent",
+    "agents",
+    "multi-agent",
+    "agent-card",
+    "routing",
+    "dispatch",
+    "agent-society",
+    "explainability",
+    "governance",
+    "conflict-resolution",
+    "llm",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+http = ["httpx>=0.25"]
+embeddings = ["sentence-transformers>=2.2"]
+bench = ["tiktoken>=0.5", "langgraph>=1.0", "langchain-core>=1.0"]
+dev = [
+    "pytest>=7.4",
+    "httpx>=0.25",
+    "tiktoken>=0.5",
+    "langgraph>=1.0",
+    "langchain-core>=1.0",
+    "build>=1.0",
+    "twine>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/sridharnomulas-maker/agent2society"
+Repository = "https://github.com/sridharnomulas-maker/agent2society"
+Issues = "https://github.com/sridharnomulas-maker/agent2society/issues"
+Documentation = "https://github.com/sridharnomulas-maker/agent2society#readme"
+Changelog = "https://github.com/sridharnomulas-maker/agent2society/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+agent2society = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
