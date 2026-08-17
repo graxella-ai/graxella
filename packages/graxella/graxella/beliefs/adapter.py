@@ -18,6 +18,9 @@ from typing import Any, Callable, Optional
 
 from mnema.integrations.sdk import MnemaClient
 
+from graxella.beliefs.records import (OBSERVED_CONFIDENCE, OutcomeRecord,
+                                      is_outcome_statement)
+
 
 # Public tracer callback shape: (event_type, payload) -> None
 TracerHook = Callable[[str, dict], None]
@@ -69,19 +72,24 @@ class Memory:
                         task: str,
                         chosen: str,
                         rationale: str = "",
-                        confidence: float | None = None) -> str:
+                        confidence: float | None = None,
+                        domain: str | None = None,
+                        model_id: str | None = None) -> str:
         """Persist one orchestration decision. Returns assertion_id.
 
         ``decision_type`` is one of: spawn | delegate | communicate |
         aggregate | stop.  ``chosen`` is the concrete choice made (e.g. the
-        agent name for a delegate). The statement is a canonical rendering
-        of "on TASK, decision_type CHOSEN because RATIONALE".
+        agent name for a delegate). The statement stays human-readable —
+        it is the semantic-search surface for case recall — while the SPO
+        triple (predicate="decision", object=chosen) gives typed filters.
         """
         statement = f"[{decision_type}] task={task!r} chose={chosen!r} :: {rationale}"
         subject = f"decision::{decision_type}::{chosen}"
         aid = self._client.observe(
             statement,
             subject=subject,
+            predicate="decision",
+            object=chosen,
             confidence=confidence,
             source_id="orchestrator",
         )
@@ -92,6 +100,8 @@ class Memory:
             "chosen": chosen,
             "rationale": rationale,
             "confidence": confidence,
+            "domain": domain or self.namespace,
+            "model_id": model_id,
         })
         return aid
 
@@ -101,32 +111,100 @@ class Memory:
                        score: float | None = None,
                        err: str | None = None,
                        cost_tokens: int | None = None,
-                       latency_ms: float | None = None) -> str:
-        """Persist the observed outcome of a previously-recorded decision.
+                       latency_ms: float | None = None,
+                       tokens_in: int | None = None,
+                       tokens_out: int | None = None,
+                       cost_usd: float | None = None,
+                       model_id: str | None = None,
+                       domain: str | None = None,
+                       kind: str = "delegate",
+                       chosen: str | None = None,
+                       violations: int = 0,
+                       err_class: str | None = None) -> str:
+        """Persist the observed outcome of a previously-recorded decision
+        as a typed OutcomeRecord (task 0A-1). Returns the assertion_id.
 
-        Returns the new outcome assertion_id. The link back to the decision
-        is preserved via the belief store's provenance chain (source_id
-        carries the decision assertion id).
+        The link back to the decision is structural, twice over:
+        ``subject`` IS the decision assertion id (query outcomes with
+        ``beliefs(subject=decision_id)``) and provenance ``derived_from``
+        carries it into the retraction cascade.
+
+        Epistemics: observed outcomes — success or failure — are recorded
+        at OBSERVED_CONFIDENCE. A watched failure is not an uncertain one.
+
+        Legacy args: ``score`` maps to ``completion``; ``cost_tokens``
+        maps to ``tokens_out`` when the split isn't known.
         """
-        statement = (f"outcome ok={ok} score={score} cost_tokens={cost_tokens} "
-                     f"latency_ms={latency_ms} err={err!r}")
-        subject = f"outcome::{decision_id}"
-        aid = self._client.observe(
-            statement,
-            subject=subject,
-            confidence=1.0 if ok else 0.5,
-            source_id=decision_id,
+        record = OutcomeRecord(
+            decision_id=decision_id,
+            ok=ok,
+            domain=domain or self.namespace,
+            kind=kind,
+            chosen=chosen,
+            model_id=model_id,
+            completion=score,
+            latency_ms=latency_ms,
+            tokens_in=tokens_in,
+            tokens_out=tokens_out if tokens_out is not None else cost_tokens,
+            cost_usd=cost_usd,
+            violations=violations,
+            err_class=err_class,
+            err=(err or None) and str(err)[:500],
         )
-        self._emit("outcome", {
-            "assertion_id": aid,
-            "decision_id": decision_id,
-            "ok": ok,
-            "score": score,
-            "err": err,
-            "cost_tokens": cost_tokens,
-            "latency_ms": latency_ms,
-        })
+        aid = self._client.observe(
+            record.to_statement(),
+            subject=decision_id,
+            predicate="outcome",
+            object="ok" if ok else "fail",
+            confidence=OBSERVED_CONFIDENCE,
+            source_id="orchestrator",
+            derived_from=(decision_id,),
+        )
+        self._emit("outcome", {"assertion_id": aid, **record.model_dump(mode="json")})
         return aid
+
+    # -- typed read-side (task 0A-1 / 0A-3) ----------------------------------
+
+    def outcomes_for(self, decision_id: str) -> list[OutcomeRecord]:
+        """All typed outcomes recorded against one decision."""
+        rows = self._client.beliefs(subject=decision_id, predicate="outcome")
+        return [OutcomeRecord.from_statement(r["statement"]) for r in rows
+                if is_outcome_statement(r["statement"])]
+
+    def outcome_stats(self, *, domain: str | None = None) -> dict:
+        """Aggregate the outcome ledger — the value-ledger v0 (task 0A-3).
+
+        Every number here is computed from ledger assertions alone; there
+        is no side-channel bookkeeping to drift out of sync.
+        """
+        rows = self._client.beliefs(predicate="outcome")
+        records = [OutcomeRecord.from_statement(r["statement"]) for r in rows
+                   if is_outcome_statement(r["statement"])]
+        if domain is not None:
+            records = [r for r in records if r.domain == domain]
+
+        def _agg(rs: list[OutcomeRecord]) -> dict:
+            n = len(rs)
+            oks = sum(1 for r in rs if r.ok)
+            lat = [r.latency_ms for r in rs if r.latency_ms is not None]
+            return {
+                "count": n,
+                "ok": oks,
+                "ok_rate": round(oks / n, 4) if n else None,
+                "tokens_in": sum(r.tokens_in or 0 for r in rs),
+                "tokens_out": sum(r.tokens_out or 0 for r in rs),
+                "cost_usd": round(sum(r.cost_usd or 0.0 for r in rs), 6),
+                "avg_latency_ms": round(sum(lat) / len(lat), 2) if lat else None,
+                "violations": sum(r.violations for r in rs),
+            }
+
+        by_domain: dict[str, list[OutcomeRecord]] = {}
+        for r in records:
+            by_domain.setdefault(r.domain, []).append(r)
+        return {
+            "total": _agg(records),
+            "by_domain": {d: _agg(rs) for d, rs in sorted(by_domain.items())},
+        }
 
     # -- read-side (forwarded) ----------------------------------------------
 

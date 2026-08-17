@@ -31,8 +31,14 @@ class MemoryRecorder:
         confidence: float | None = None,
         source_id: str = "agent",
         namespace: str | None = None,
+        derived_from: tuple[str, ...] = (),
     ) -> Assertion:
-        """Build and record a new observed assertion."""
+        """Build and record a new observed assertion.
+
+        ``derived_from`` carries the assertion ids this observation depends
+        on (I4: retraction cascade) — e.g. an outcome derives from the
+        decision that produced it.
+        """
         assertion = Assertion(
             agent_id=agent_id,
             namespace=namespace or settings.default_namespace,
@@ -42,7 +48,11 @@ class MemoryRecorder:
             object=object,
             valid_from=valid_from,
             valid_to=valid_to,
-            provenance=Provenance(origin_type=OriginType.OBSERVED, source_id=source_id),
+            provenance=Provenance(
+                origin_type=OriginType.OBSERVED,
+                source_id=source_id,
+                derived_from=tuple(derived_from),
+            ),
             confidence=Confidence(
                 value=confidence if confidence is not None else settings.default_confidence,
                 method="empirical",

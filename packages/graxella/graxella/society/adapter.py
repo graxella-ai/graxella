@@ -17,6 +17,7 @@ dispatched via the LocalTransport are exercised end-to-end.
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -46,6 +47,10 @@ class RouteResult:
     handoff_id: str
     response: str
     explanation: RoutingExplanation
+    # Dispatch telemetry (task 0A-2) — feeds the typed outcome record.
+    latency_ms: float | None = None
+    tokens_in: int | None = None
+    tokens_out: int | None = None
 
 
 class _CallableCard:
@@ -73,9 +78,20 @@ class _CallableCard:
             for s in (skills or [f"{name}.default"])
         ]
         self._runner = runner
+        # Last-call telemetry (task 0A-2). The mesh's dispatch returns a
+        # plain string, so token usage rides out-of-band on the card and
+        # Society.route() picks it up right after dispatch. Per-call slot,
+        # not per-thread — concurrency-safe dispatch is Phase 3 (task 3-4).
+        self.last_usage: dict | None = None
 
     def __call__(self, payload: Any) -> Any:  # picked up as runner
-        return self._runner(payload)
+        self.last_usage = None
+        result = self._runner(payload)
+        if isinstance(result, dict):
+            usage = result.get("usage")
+            if isinstance(usage, dict):
+                self.last_usage = usage
+        return result
 
 
 def _slug(s: str) -> str:
@@ -135,6 +151,24 @@ def _langgraph_agent_info(agent: Any) -> tuple[str, list[Any], list[str]]:
     return name, tools, tags
 
 
+def _usage_from_messages(messages: list) -> dict | None:
+    """Sum LangChain ``usage_metadata`` across a run's messages.
+
+    Returns {"input_tokens": int, "output_tokens": int} or None when no
+    message carried usage (stub agents, non-LLM runners). Task 0A-2: this
+    is where the token cost of a dispatch becomes ledger-recordable.
+    """
+    tin = tout = 0
+    seen = False
+    for m in messages:
+        um = getattr(m, "usage_metadata", None)
+        if isinstance(um, dict):
+            tin += int(um.get("input_tokens") or 0)
+            tout += int(um.get("output_tokens") or 0)
+            seen = True
+    return {"input_tokens": tin, "output_tokens": tout} if seen else None
+
+
 def _make_langgraph_runner(agent: Any, peer_context: str = "") -> Callable[[Any], Any]:
     """Wrap a compiled LangGraph agent so its ``.invoke`` fits the
     Society dispatch shape. Optionally prepends a system message with the
@@ -157,7 +191,11 @@ def _make_langgraph_runner(agent: Any, peer_context: str = "") -> Callable[[Any]
                     "name": tc.get("name") if isinstance(tc, dict) else getattr(tc, "name", None),
                     "args": tc.get("args") if isinstance(tc, dict) else getattr(tc, "args", None),
                 })
-        return {"result": content, "tool_calls": tool_calls}
+        out: dict = {"result": content, "tool_calls": tool_calls}
+        usage = _usage_from_messages(messages)
+        if usage:
+            out["usage"] = usage
+        return out
     return runner
 
 
@@ -212,6 +250,7 @@ class Society:
     _mesh: Mesh | None = field(default=None, init=False, repr=False)
     _store: JsonlFileStore | None = field(default=None, init=False, repr=False)
     _tracer_hooks: list[TracerHook] = field(default_factory=list, init=False, repr=False)
+    _cards: dict[str, "_CallableCard"] = field(default_factory=dict, init=False, repr=False)
 
     def __post_init__(self) -> None:
         Path(self.store_path).parent.mkdir(parents=True, exist_ok=True)
@@ -257,7 +296,7 @@ class Society:
             name, _, agent_skills = _langgraph_agent_info(agent)
             runner = _make_langgraph_runner(agent)
             source: Any = _CallableCard(name=name, runner=runner, skills=agent_skills)
-            self._mesh.add(source)
+            self._register_card(source)
             return
 
         if card_or_callable is None and _looks_like_crewai_agent(name_or_agent):
@@ -266,13 +305,21 @@ class Society:
             runner = _crewai_runner(agent)
             agent_skills = _crewai_skills(agent)
             source = _CallableCard(name=name, runner=runner, skills=agent_skills)
-            self._mesh.add(source)
+            self._register_card(source)
             return
 
         name = name_or_agent
         source = card_or_callable
         if callable(source) and not hasattr(source, "skills"):
             source = _CallableCard(name=name, runner=source, skills=skills or [])
+        self._register_card(source)
+
+    def _register_card(self, source: Any) -> None:
+        """Add to the mesh AND remember _CallableCards by name so route()
+        can read their last-call telemetry (task 0A-2). All registration
+        paths — including graxella.mesh's — must come through here."""
+        if isinstance(source, _CallableCard):
+            self._cards[source.name] = source
         self._mesh.add(source)
 
     def add_with_peer_context(self, agent: Any, peer_context: str) -> None:
@@ -284,7 +331,7 @@ class Society:
             return
         name, _, agent_skills = _langgraph_agent_info(agent)
         runner = _make_langgraph_runner(agent, peer_context=peer_context)
-        self._mesh.add(_CallableCard(name=name, runner=runner, skills=agent_skills))
+        self._register_card(_CallableCard(name=name, runner=runner, skills=agent_skills))
 
     def attach_tracer(self, hook: TracerHook) -> None:
         """Register a tracer callback that fires on every routing decision."""
@@ -304,13 +351,19 @@ class Society:
             assumptions=assumptions or [],
             confidence_required=confidence_required,
         )
+        t0 = time.perf_counter()
         response = self._mesh.run(handoff)
+        latency_ms = (time.perf_counter() - t0) * 1000.0
         explanation = self._mesh.explain(handoff.id)
         # Mesh.run() always writes an explanation, even on unroutable /
         # conformance-blocked paths. Defensive fallback in case a custom
         # store returns None.
         if explanation is None:
             raise RuntimeError(f"no explanation stored for handoff {handoff.id}")
+
+        # Token usage rides out-of-band on the dispatched card (0A-2).
+        card = self._cards.get(explanation.chosen_agent or "")
+        usage = card.last_usage if card is not None else None
 
         result = RouteResult(
             chosen_agent=explanation.chosen_agent,
@@ -326,6 +379,9 @@ class Society:
             handoff_id=handoff.id,
             response=response or "",
             explanation=explanation,
+            latency_ms=latency_ms,
+            tokens_in=(usage or {}).get("input_tokens"),
+            tokens_out=(usage or {}).get("output_tokens"),
         )
         self._emit("route", {
             "handoff_id": handoff.id,
@@ -337,6 +393,9 @@ class Society:
             "margin": result.margin,
             "flags": list(result.flags),
             "alternatives": result.alternatives,
+            "latency_ms": round(latency_ms, 2),
+            "tokens_in": result.tokens_in,
+            "tokens_out": result.tokens_out,
         })
         return result
 

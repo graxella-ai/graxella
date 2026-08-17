@@ -146,24 +146,29 @@ def _register(society: Society, agent: Any, descs: list[dict]) -> str:
         name = agent._routing_name()
         peer_ctx = _build_peer_context(descs, self_name=name)
         runner = agent._make_runner(peer_context=peer_ctx)
-        society._mesh.add(_CallableCard(name=name, runner=runner, skills=agent._skill_tags()))
+        society._register_card(_CallableCard(name=name, runner=runner, skills=agent._skill_tags()))
         return name
     # (2) native LangGraph
     if _looks_like_langgraph_agent(agent):
         name, _, skills = _langgraph_agent_info(agent)
         peer_ctx = _build_peer_context(descs, self_name=name)
         runner = _make_langgraph_runner(agent, peer_context=peer_ctx)
-        society._mesh.add(_CallableCard(name=name, runner=runner, skills=skills))
+        society._register_card(_CallableCard(name=name, runner=runner, skills=skills))
         return name
     # (3) crewai-shaped
     if _looks_like_crewai_agent(agent):
         name = _slug(getattr(agent, "role", "agent"))
         runner = _crewai_runner(agent)
-        society._mesh.add(_CallableCard(name=name, runner=runner, skills=_crewai_skills(agent)))
+        society._register_card(_CallableCard(name=name, runner=runner, skills=_crewai_skills(agent)))
         return name
-    # (4) bare callable
+    # (4) bare callable — the docstring's first line is its capability
+    # card (cards derive from code, never from user-authored config).
     name = _slug(getattr(agent, "__name__", None) or "agent")
-    society._mesh.add(_CallableCard(name=name, runner=agent, skills=[name]))
+    skills = [name.replace("_", " ")]
+    doc = (getattr(agent, "__doc__", None) or "").strip()
+    if doc:
+        skills.append(doc.split("\n")[0].strip())
+    society._register_card(_CallableCard(name=name, runner=agent, skills=skills))
     return name
 
 
@@ -331,7 +336,9 @@ def mesh(agents: Iterable[Any], *,
          gate: PromotionGate | None = None,
          constitution: Constitution | None = None,
          router: Any = None,
-         store_path: str | None = None) -> InstrumentedApp:
+         store_path: str | None = None,
+         domain: str | None = None,
+         model_id: str | None = None) -> InstrumentedApp:
     """Wrap a collection of native agents in a deterministic mesh.
 
     Each agent gets a peer-directory system message on every call so it
@@ -369,7 +376,8 @@ def mesh(agents: Iterable[Any], *,
 
     runnable = _MeshRunnable(society)
     app = instrument(runnable, memory=memory, society=society,
-                     tracer=tracer, gate=gate, constitution=constitution)
+                     tracer=tracer, gate=gate, constitution=constitution,
+                     domain=domain, model_id=model_id)
     runnable._app = app  # wire the full route pipeline back in
     return app
 
@@ -381,7 +389,9 @@ def supervisor(agents: Iterable[Any], model: Any, *,
                gate: PromotionGate | None = None,
                constitution: Constitution | None = None,
                router: Any = None,
-               store_path: str | None = None) -> InstrumentedApp:
+               store_path: str | None = None,
+               domain: str | None = None,
+               model_id: str | None = None) -> InstrumentedApp:
     """Wrap a collection of native agents with an LLM supervisor.
 
     ``model`` is the supervisor's own LLM (any LangChain BaseChatModel;
@@ -415,7 +425,8 @@ def supervisor(agents: Iterable[Any], model: Any, *,
 
     runnable = _SupervisorRunnable(society, model, descs, default_prompt)
     app = instrument(runnable, memory=memory, society=society,
-                     tracer=tracer, gate=gate, constitution=constitution)
+                     tracer=tracer, gate=gate, constitution=constitution,
+                     domain=domain, model_id=model_id)
     runnable._app = app
     return app
 

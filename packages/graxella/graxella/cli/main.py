@@ -144,6 +144,27 @@ def cmd_rules(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tokens(args: argparse.Namespace) -> int:
+    """Token/cost accounting from the outcome ledger alone (task 0A-3)."""
+    from graxella.beliefs import Memory
+    memory = Memory.sqlite(args.db, agent_id=args.agent, namespace=args.namespace)
+    stats = memory.outcome_stats(domain=args.domain)
+    total = stats["total"]
+    print(f"outcomes: {total['count']}  ok: {total['ok']}  "
+          f"ok_rate: {total['ok_rate']}")
+    print(f"tokens_in: {total['tokens_in']}  tokens_out: {total['tokens_out']}  "
+          f"cost_usd: {total['cost_usd']}")
+    print(f"avg_latency_ms: {total['avg_latency_ms']}  "
+          f"violations: {total['violations']}")
+    if stats["by_domain"] and len(stats["by_domain"]) > 1:
+        print("\nby domain:")
+        for dom, agg in stats["by_domain"].items():
+            print(f"  {dom}: n={agg['count']} ok_rate={agg['ok_rate']} "
+                  f"tokens={agg['tokens_in']}+{agg['tokens_out']} "
+                  f"avg_latency={agg['avg_latency_ms']}ms")
+    return 0
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     store = _open_store(args.store)
     rulebook = _open_rulebook(args.rulebook)
@@ -198,6 +219,16 @@ def _build_parser() -> argparse.ArgumentParser:
     au.add_argument("--rulebook", required=True)
     au.add_argument("--out", required=True)
     au.set_defaults(func=cmd_audit)
+
+    tk = sub.add_parser("tokens",
+                        help="token/cost accounting from the outcome ledger")
+    tk.add_argument("--db", required=True, help="mnema sqlite db path")
+    tk.add_argument("--agent", default="graxella-mesh",
+                    help="agent_id the outcomes were recorded under")
+    tk.add_argument("--namespace", default="default")
+    tk.add_argument("--domain", default=None,
+                    help="restrict the report to one evidence domain")
+    tk.set_defaults(func=cmd_tokens)
 
     return p
 

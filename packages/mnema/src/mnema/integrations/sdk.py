@@ -50,17 +50,28 @@ class MnemaClient:
         statement: str,
         *,
         subject: str | None = None,
+        predicate: str | None = None,
+        object: str | None = None,
         confidence: float | None = None,
         source_id: str = "agent",
+        derived_from: tuple[str, ...] = (),
     ) -> str:
-        """Record an observation. Returns assertion_id."""
+        """Record an observation. Returns assertion_id.
+
+        ``predicate``/``object`` complete the SPO triple for typed queries;
+        ``derived_from`` links this observation to the assertions it depends
+        on (feeds the retraction cascade).
+        """
         a = self._recorder.observe(
             self.agent_id,
             statement,
             subject=subject,
+            predicate=predicate,
+            object=object,
             confidence=confidence,
             source_id=source_id,
             namespace=self.namespace,
+            derived_from=derived_from,
         )
         return a.id
 
@@ -95,6 +106,52 @@ class MnemaClient:
             self.agent_id, query_text, namespace=self.namespace, top_k=top_k
         )
         return [(score, b.statement) for score, b in ranked]
+
+    def search_assertions(self, query_text: str, *, top_k: int = 5) -> list[tuple[float, dict]]:
+        """Semantic search returning full assertion metadata, not just statements.
+
+        Each hit is (score, {id, subject, predicate, object, statement,
+        confidence}) — enough to join outcomes back to decisions without a
+        second lookup. Used by graxella's case recall.
+        """
+        ranked = self._retriever.semantic_search(
+            self.agent_id, query_text, namespace=self.namespace, top_k=top_k
+        )
+        return [
+            (score, {
+                "id": b.id,
+                "subject": b.subject,
+                "predicate": b.predicate,
+                "object": b.object,
+                "statement": b.statement,
+                "confidence": b.confidence.value,
+            })
+            for score, b in ranked
+        ]
+
+    def beliefs(self, *, subject: str | None = None,
+                predicate: str | None = None) -> list[dict]:
+        """Current (non-retracted, non-superseded) beliefs as dicts, optionally
+        filtered by exact subject and/or predicate. Typed-query surface for
+        graxella's outcome ledger."""
+        rows = self._store.current_beliefs(
+            namespace=self.namespace, agent_id=self.agent_id, subject=subject
+        )
+        if predicate is not None:
+            rows = [b for b in rows if b.predicate == predicate]
+        return [
+            {
+                "id": b.id,
+                "subject": b.subject,
+                "predicate": b.predicate,
+                "object": b.object,
+                "statement": b.statement,
+                "confidence": b.confidence.value,
+                "derived_from": list(b.provenance.derived_from),
+                "asserted_at": b.asserted_at.isoformat(),
+            }
+            for b in rows
+        ]
 
     # -- query / audit --------------------------------------------------------
 
