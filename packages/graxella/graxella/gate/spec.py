@@ -229,6 +229,52 @@ class Proposal(BaseModel):
         return self.model_dump(mode="json")
 
 
+#: Legacy agenda kinds → spec kinds (see promotion-spec.md migration table).
+_LEGACY_KIND_MAP = {
+    "rule": ArtifactKind.TOOL_BINDING,
+    "route_weight": ArtifactKind.ROUTE_WEIGHT,
+    "trust_tier": ArtifactKind.TRUST_TIER,
+}
+
+
+def from_legacy(legacy: Any, *, domain: str = "default",
+                origin: str | None = None) -> Proposal:
+    """Bridge a legacy ``graxella.agenda.miners.Proposal`` into the one
+    canonical Proposal (task 1-5). Field mapping per the spec doc:
+    kind→ArtifactKind, subject→target, change→payload,
+    derived_from→evidence[role=episode], evidence(str)→note. The legacy
+    deterministic id is preserved so promote-by-id references survive."""
+    kind = _LEGACY_KIND_MAP.get(getattr(legacy, "kind", ""), None)
+    if kind is None:
+        try:
+            kind = ArtifactKind(getattr(legacy, "kind", ""))
+        except ValueError:
+            kind = ArtifactKind.RULE
+    change = dict(getattr(legacy, "change", {}) or {})
+    subject = getattr(legacy, "subject", "") or None
+    if kind in (ArtifactKind.TRUST_TIER, ArtifactKind.ROUTE_WEIGHT):
+        target = TargetScope(domain=domain,
+                             agent=change.get("agent") or subject)
+    else:
+        target = TargetScope(domain=domain,
+                             tool=change.get("replace_skill") or subject)
+    evidence = tuple(
+        EvidenceCitation(assertion_id=eid, role=EvidenceRole.EPISODE)
+        for eid in (getattr(legacy, "derived_from", None) or [])
+    )
+    conf = getattr(legacy, "confidence", None)
+    return Proposal(
+        id=getattr(legacy, "id", None) or _random_id(),
+        kind=kind,
+        target=target,
+        payload=change,
+        origin=origin or "miner:legacy",
+        evidence=evidence,
+        confidence=min(max(float(conf), 0.0), 1.0) if conf is not None else None,
+        note=str(getattr(legacy, "evidence", "") or ""),
+    )
+
+
 __all__ = [
     "SPEC_VERSION",
     "ArtifactKind",
@@ -240,4 +286,5 @@ __all__ = [
     "TargetScope",
     "Proposal",
     "InvalidTransitionError",
+    "from_legacy",
 ]

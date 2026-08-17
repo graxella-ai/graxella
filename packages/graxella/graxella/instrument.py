@@ -53,7 +53,7 @@ from typing import Any, Optional
 from graxella.beliefs import Memory
 from graxella.beliefs.records import render_recall_block
 from graxella.constitution import Constitution
-from graxella.gate import PromotionGate
+from graxella.gate import EvidenceGate
 from graxella.integrations.langgraph import GraxellaCallback
 from graxella.memory.episode import ExperienceStore, InMemoryExperienceStore
 from graxella.society import Society
@@ -72,7 +72,7 @@ class InstrumentedApp:
     memory: Memory
     society: Society
     tracer: UnifiedTracer
-    gate: PromotionGate
+    gate: EvidenceGate
     constitution: Constitution
     episode_store: ExperienceStore
     domain: str | None = None      # evidence scope; defaults to memory namespace
@@ -257,7 +257,7 @@ def instrument(app: Any, *,
                memory: Memory,
                society: Society,
                tracer: UnifiedTracer | None = None,
-               gate: PromotionGate | None = None,
+               gate: EvidenceGate | None = None,
                constitution: Constitution | None = None,
                episode_store: ExperienceStore | None = None,
                domain: str | None = None,
@@ -273,20 +273,16 @@ def instrument(app: Any, *,
     decision through society flow into the tracer automatically.
     """
     tracer = tracer or UnifiedTracer.default()
-    gate = gate or PromotionGate()
     constitution = constitution or Constitution.empty()
+    # The Evidence Gate reads the same ledger the app writes outcomes to —
+    # one substrate; constitution invariants sit above it as hard blocks.
+    gate = gate or EvidenceGate(memory, constitution=constitution)
     episode_store = episode_store or InMemoryExperienceStore()
 
     # Wire tracer hooks — one unified event stream.
     memory.attach_tracer(tracer.hook_for("beliefs"))
     society.attach_tracer(tracer.hook_for("society"))
-    gate.on_change(lambda p: tracer.record(
-        "gate", f"proposal.{p.status.value}", {
-            "id": p.id, "kind": p.kind, "score": p.score,
-            "blast_radius": p.blast_radius, "payload": p.payload,
-            "decided_by": p.decided_by, "note": p.note,
-        },
-    ))
+    gate.attach_tracer(tracer.hook_for("gate"))
 
     return InstrumentedApp(
         app=app,

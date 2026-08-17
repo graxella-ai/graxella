@@ -44,6 +44,25 @@ class TransformRecipe:
             out.setdefault(k, v)
         return out
 
+    def to_proposal(self, *, domain: str, tool: str, origin: str,
+                    model_id: str | None = None):
+        """Ship this recipe through the unified pipeline (task 1-5): one
+        spec.Proposal(kind=transform), gate-decided like everything else.
+        Phase 2 (task 2-5) makes this the healer's only exit path."""
+        from graxella.gate import spec
+        payload = {"field_map": dict(self.field_map),
+                   "static_defaults": dict(self.static_defaults),
+                   "drop_fields": list(self.drop_fields)}
+        target = spec.TargetScope(domain=domain, tool=tool, model_id=model_id)
+        return spec.Proposal(
+            id=spec.Proposal.deterministic_id(spec.ArtifactKind.TRANSFORM,
+                                              target, payload),
+            kind=spec.ArtifactKind.TRANSFORM,
+            target=target,
+            payload=payload,
+            origin=origin,
+        )
+
 
 class HealedTool:
     """Callable wrapper that self-heals on failure.

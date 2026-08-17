@@ -46,7 +46,7 @@ from typing import Any, Iterable
 
 from graxella.beliefs import Memory
 from graxella.constitution import Constitution
-from graxella.gate import PromotionGate
+from graxella.gate import EvidenceGate
 from graxella.instrument import InstrumentedApp, instrument
 from graxella.society import Society
 from graxella.society.adapter import (
@@ -379,7 +379,7 @@ class _SupervisorRunnable:
 def mesh(agents: Iterable[Any], *,
          memory: Memory | None = None,
          tracer: UnifiedTracer | None = None,
-         gate: PromotionGate | None = None,
+         gate: EvidenceGate | None = None,
          constitution: Constitution | None = None,
          router: Any = None,
          store_path: str | None = None,
@@ -433,7 +433,7 @@ def supervisor(agents: Iterable[Any], model: Any, *,
                prompt: str | None = None,
                memory: Memory | None = None,
                tracer: UnifiedTracer | None = None,
-               gate: PromotionGate | None = None,
+               gate: EvidenceGate | None = None,
                constitution: Constitution | None = None,
                router: Any = None,
                store_path: str | None = None,

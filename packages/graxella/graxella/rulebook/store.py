@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any
 
 from graxella.agenda.miners import Proposal
+from graxella.exceptions import UnsafeRuleError
+from graxella.gate import spec as _spec
 
 
 @dataclass
@@ -29,6 +31,10 @@ class ApprovedRule:
     derived_from: list[str] = field(default_factory=list)
     approved_at: float = 0.0
     approved_by: str = "human"
+    # Unified pipeline (task 1-5): the spec-Proposal lineage this rule
+    # shipped through, and the citations its approval rests on.
+    spec_status: str = ""
+    citations: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -78,32 +84,94 @@ class Rulebook:
         return list(self._rules)
 
     # ---------------------------------------------------------- mutations
-    def promote(self, proposal: Proposal, *,
-                approved_by: str = "human") -> ApprovedRule:
-        """Promote a Proposal to an ApprovedRule and persist. Idempotent by
-        proposal_id — re-promoting is a no-op."""
+    def promote(self, proposal: Any, *,
+                approved_by: str | None = "human",
+                gate: Any = None,
+                domain: str = "default") -> ApprovedRule:
+        """Promote a proposal through the UNIFIED pipeline (task 1-5).
+
+        Accepts a legacy agenda Proposal or a spec Proposal; either way,
+        nothing lands in the rulebook without lineage:
+
+          * a spec Proposal already APPROVED/ACTIVE ships as-is (its
+            citations came from the Evidence Gate or a recorded human);
+          * with ``gate=``, the Evidence Gate decides — AUTO_APPROVE ships,
+            AUTO_REJECT raises, NEEDS_HUMAN ships only if ``approved_by``
+            supplements it (operator sign-off is recorded as a citation);
+          * with only ``approved_by``, the human decision IS the lineage,
+            recorded as an operator citation;
+          * with neither, UnsafeRuleError — there is no uncited path.
+
+        Idempotent by proposal id — re-promoting is a no-op.
+        """
         self.reload()
+        spec_p = proposal if isinstance(proposal, _spec.Proposal) \
+            else _spec.from_legacy(proposal, domain=domain)
         for existing in self._rules:
-            if existing.proposal_id == proposal.id:
+            if existing.proposal_id == spec_p.id:
                 return existing
 
-        change = proposal.change or {}
+        spec_p = self._clear_gate(spec_p, gate=gate, approved_by=approved_by)
+
+        change = dict(spec_p.payload or {})
         rule = ApprovedRule(
-            id=f"apr_{proposal.id.replace('prop_', '')}",
-            proposal_id=proposal.id,
-            kind=proposal.kind,
+            id=f"apr_{spec_p.id.replace('prop_', '')}",
+            proposal_id=spec_p.id,
+            kind=(proposal.kind if not isinstance(proposal, _spec.Proposal)
+                  else spec_p.kind.value),
             intent=str(change.get("if_intent") or change.get("intent") or ""),
             replace_skill=str(change.get("replace_skill") or ""),
             with_skill=str(change.get("with_skill") or ""),
-            recipe=_recipe_from_evidence(proposal),
-            change=dict(change),
-            derived_from=list(proposal.derived_from),
+            recipe=_recipe_from_change(change),
+            change=change,
+            derived_from=[c.assertion_id for c in spec_p.evidence
+                          if c.role is _spec.EvidenceRole.EPISODE],
             approved_at=time.time(),
-            approved_by=approved_by,
+            approved_by=spec_p.decided_by or approved_by or "gate:evidence",
+            spec_status=spec_p.status.value,
+            citations=[c.assertion_id for c in spec_p.evidence],
         )
         self._rules.append(rule)
         self._save()
         return rule
+
+    @staticmethod
+    def _clear_gate(spec_p: "_spec.Proposal", *, gate: Any,
+                    approved_by: str | None) -> "_spec.Proposal":
+        """Walk the proposal to ACTIVE — through the gate, the human, or
+        both. Raises UnsafeRuleError when no lineage exists."""
+        S = _spec.ProposalStatus
+        if spec_p.status is S.ACTIVE:
+            return spec_p
+        if spec_p.status is S.APPROVED:
+            return spec_p.with_status(S.ACTIVE, by=spec_p.decided_by or "promoter")
+
+        if gate is not None:
+            verdict, spec_p = gate.decide(spec_p)
+            if spec_p.status is S.APPROVED:
+                return spec_p.with_status(S.ACTIVE, by="gate:evidence")
+            if spec_p.status is S.REJECTED:
+                raise UnsafeRuleError(
+                    f"gate rejected proposal {spec_p.id}: {verdict.reason}")
+            # NEEDS_HUMAN falls through to the operator path below.
+
+        if approved_by:
+            op = _spec.EvidenceCitation(
+                assertion_id=f"operator::{approved_by}",
+                role=_spec.EvidenceRole.OPERATOR_DECISION,
+                note="rulebook promotion sign-off",
+            )
+            if spec_p.status is S.PENDING:
+                spec_p = spec_p.with_status(S.NEEDS_HUMAN,
+                                            by=f"operator:{approved_by}")
+            spec_p = spec_p.with_status(S.APPROVED, by=f"operator:{approved_by}",
+                                        extra_evidence=(op,))
+            return spec_p.with_status(S.ACTIVE, by=f"operator:{approved_by}")
+
+        raise UnsafeRuleError(
+            f"proposal {spec_p.id} has no promotion lineage: pass gate= "
+            f"for an evidence decision, approved_by= for human sign-off, "
+            f"or a proposal already APPROVED/ACTIVE")
 
     def reject(self, proposal_id: str) -> None:
         """Mark a proposal as rejected. Rejected proposals are hidden from
@@ -141,15 +209,14 @@ class Rulebook:
         self._mtime = self.path.stat().st_mtime
 
 
-def _recipe_from_evidence(proposal: Proposal) -> dict[str, Any]:
+def _recipe_from_change(change: dict[str, Any]) -> dict[str, Any]:
     """First-cut recipe extractor. Reviewers can attach a richer recipe by
     editing the rulebook file directly; the runtime honours whatever is there.
 
-    Today: if the proposal carries a field_map hint in `change`, use it;
-    otherwise emit an empty recipe (a pure identity substitution — args get
-    forwarded unchanged, which the target tool may or may not accept).
+    Today: if the payload carries a field_map hint, use it; otherwise emit
+    an empty recipe (a pure identity substitution — args get forwarded
+    unchanged, which the target tool may or may not accept).
     """
-    change = proposal.change or {}
     if "recipe" in change and isinstance(change["recipe"], dict):
         return dict(change["recipe"])
     if "field_map" in change:

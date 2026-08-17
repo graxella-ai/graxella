@@ -160,6 +160,21 @@ class EvidenceGate:
         if constitution is not None:
             self.hard_blocks += (_constitution_block(constitution),)
         self._index: dict[tuple, list[tuple[str, OutcomeRecord]]] | None = None
+        # Human-review queue (feeds task 1-8's CLI/dashboard): proposals
+        # this gate sent to NEEDS_HUMAN, keyed by proposal id.
+        self._pending: dict[str, Proposal] = {}
+        self._tracer_hooks: list[Callable[[str, dict], None]] = []
+
+    def attach_tracer(self, hook: Callable[[str, dict], None]) -> None:
+        """Register an (event_type, payload) callback fired per verdict."""
+        self._tracer_hooks.append(hook)
+
+    def pending(self) -> list[Proposal]:
+        """Proposals awaiting a human, most recent last."""
+        return list(self._pending.values())
+
+    def get(self, proposal_id: str) -> Optional[Proposal]:
+        return self._pending.get(proposal_id)
 
     # -- 1-1: the prior query engine -----------------------------------------
 
@@ -290,13 +305,29 @@ class EvidenceGate:
             updated = proposal.with_status(ProposalStatus.APPROVED, by=by,
                                            note=verdict.reason,
                                            extra_evidence=cites)
+            self._pending.pop(proposal.id, None)
         elif verdict.decision is GateDecision.AUTO_REJECT:
             updated = proposal.with_status(ProposalStatus.REJECTED, by=by,
                                            note=verdict.reason)
+            self._pending.pop(proposal.id, None)
         else:
             updated = proposal.with_status(ProposalStatus.NEEDS_HUMAN, by=by,
                                            note=verdict.reason) \
                 if proposal.status is ProposalStatus.PENDING else proposal
+            self._pending[updated.id] = updated
+        for hook in self._tracer_hooks:
+            try:
+                hook("verdict", {
+                    "proposal_id": verdict.proposal_id,
+                    "decision": verdict.decision.value,
+                    "posterior": verdict.posterior,
+                    "threshold": verdict.threshold,
+                    "evidence_n": verdict.prior.n,
+                    "sessions": verdict.prior.sessions,
+                    "reason": verdict.reason,
+                })
+            except Exception:
+                pass  # observability never blocks governance
         return verdict, updated
 
     def why(self, proposal_id: str) -> str:

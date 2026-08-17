@@ -41,9 +41,11 @@ from graxella.rulebook import ApprovedRule, Rulebook
 # routing, tracing, and gated learning in one call.
 from graxella.beliefs import Memory
 from graxella.constitution import Constitution, Violation
-from graxella.gate import (GateDecision, GatePolicy, ObjectiveScores,
+from graxella.gate import (EvidenceGate, EvidencePrior, GateVerdict,
+                            GateDecision, GatePolicy, ObjectiveScores,
                             PromotionGate, Proposal as GateProposal,
-                            ProposalStatus)
+                            ProposalStatus, spec as promotion_spec)
+from graxella.gate.spec import Proposal as PromotionProposal
 from graxella.agent import Agent
 from graxella.instrument import InstrumentedApp, instrument
 from graxella.mesh import mesh, supervisor
@@ -96,6 +98,11 @@ __all__ = [
     "Society",
     "UnifiedTracer",
     "TraceEvent",
+    "EvidenceGate",
+    "EvidencePrior",
+    "GateVerdict",
+    "PromotionProposal",
+    "promotion_spec",
     "PromotionGate",
     "GateProposal",
     "ProposalStatus",
