@@ -1,0 +1,47 @@
+# Graxella workspace CI (build plan task S-4).
+#
+# The three suites run as separate pytest invocations on purpose: each
+# package has a top-level `tests` package, and collecting them together
+# collides on the module name. Per-suite jobs are also the better CI
+# shape — a mnema failure is visibly a mnema failure.
+#
+# Lint gate is critical-rules-only (syntax errors, undefined names) so it
+# blocks real breakage without freezing the legacy style debt; tightening
+# to full ruff is tracked with Phase 0 task 0C-2.
+#
+# TODO(0C-2): add the pinned-LangGraph adapter matrix (two versions) once
+# the adapter contract tests exist.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  critical-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - run: uv run ruff check --select E9,F63,F7,F82 packages
+
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+        suite:
+          - packages/graxella/tests
+          - packages/mnema/tests
+          - packages/agent2society/tests
+    name: pytest ${{ matrix.suite }} (py${{ matrix.python-version }})
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: uv sync
+      - run: uv run pytest ${{ matrix.suite }} -q

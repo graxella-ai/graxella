@@ -1,5 +1,7 @@
 # Graxella
 
+[![ci](https://github.com/sridharnomulas-maker/graxella/actions/workflows/ci.yml/badge.svg)](https://github.com/sridharnomulas-maker/graxella/actions/workflows/ci.yml)
+
 **A graph-native intelligence layer for agent runtimes.**
 
 Graxella turns every tool call your agent makes into a cited, replayable
@@ -123,12 +125,35 @@ pip install "graxella[all]"
 
 ---
 
+## Monorepo & development
+
+This repository is a uv workspace:
+
+```
+packages/
+├── graxella/        the runtime (this README's subject)
+├── mnema/           immutable belief ledger (memory intelligence)
+├── agent2society/   deterministic A2A routing + governance
+└── axon-fabric/     tool-boundary fabric (B10 port lands Phase 2)
+docs/specs/          binding specs — Promotion Spec, Disclosure Spec
+docs/mast-tracking.md  failure-mode tracker (MAST, arXiv 2503.13657)
+```
+
+```bash
+uv sync                                   # one venv, all packages editable
+uv run pytest                             # graxella core suite
+uv run pytest packages/mnema/tests        # sibling suites run separately
+uv run pytest packages/agent2society/tests
+```
+
 ## Roadmap
 
-Phases 1–7 are code-complete and demoed end-to-end against a real
-Ollama-served open-source LLM (qwen2.5:3b). See
-`Graxella_Executive_Summary.pptx` for the deck. Phase 8 (CrewAI +
-AutoGen adapters) is next.
+The build runs on the Evidence Loop plan: Phase 0 closes the
+decision→outcome loop, Phase 1 lands the evidence-based promotion gate,
+Phase 2 the multi-hop handoff runtime + tool fabric, Phase 3 the scale
+substrate, Phase 4 the value ledger, Phase 5 the ecosystem adapters
+(CrewAI, AutoGen, A2A). `docs/mast-tracking.md` tracks failure-mode
+coverage per phase.
 
 ---
 
