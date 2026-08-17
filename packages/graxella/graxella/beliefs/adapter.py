@@ -17,9 +17,12 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
 import ast
+import logging
 import re
 
 from mnema.integrations.sdk import MnemaClient
+
+_log = logging.getLogger("graxella")
 
 from graxella.beliefs.records import (OBSERVED_CONFIDENCE, OutcomeRecord,
                                       RecalledCase, is_outcome_statement)
@@ -283,9 +286,11 @@ class Memory:
         for hook in self._tracer_hooks:
             try:
                 hook(event_type, payload)
-            except Exception:
-                # Tracer hooks must never break memory writes.
-                pass
+            except Exception as exc:
+                # Tracer hooks must never break memory writes — but a
+                # broken hook is an observability outage; say so (0C-3).
+                _log.warning("graxella: memory tracer hook failed on %r: "
+                             "%s: %s", event_type, type(exc).__name__, exc)
 
 
 def _parse_decision_task(statement: str) -> str | None:

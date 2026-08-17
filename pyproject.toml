@@ -24,13 +24,47 @@ members = ["packages/*"]
 [dependency-groups]
 dev = [
     "pytest>=8",
+    "pytest-cov>=5",
     "ruff>=0.4",
-    "hypothesis>=6.100",  # mnema's property tests
+    "hypothesis>=6.100",   # mnema's property tests
+    "langgraph>=0.2",      # adapter contract tests (0C-2)
+    "langchain-core>=0.3",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["packages/graxella/tests"]
 addopts = "-q"
+
+# Coverage gate (task 0C-2): enforced on the ACTIVE Evidence-Loop core.
+# Legacy surfaces are omitted only where a named build-plan task reworks
+# them — tests land with the rework, and the omission dies with it:
+#   agenda/* + rulebook/* + gate/promoter.py -> Phase 1 task 1-5/1-7
+#   healing/*                               -> Phase 2 task 2-5
+#   reasoning/* (miner engine)              -> Phase 1 miners
+#   audit/*                                 -> Phase 4 task 4-3
+#   knowledge/*, discovery/*, integrations/*-> Phase 2/3 ports
+#   constitution/*                          -> Phase 1 (gate owns invariants)
+#   api/*, cli/*                            -> 0C-2 follow-up (thin shells)
+# Ratchet plan: fail_under 75 now -> 85 at Phase 1 exit.
+[tool.coverage.run]
+omit = [
+    "*/graxella/api/*",
+    "*/graxella/cli/*",
+    "*/graxella/agenda/*",
+    "*/graxella/healing/*",
+    "*/graxella/rulebook/*",
+    "*/graxella/reasoning/*",
+    "*/graxella/audit/*",
+    "*/graxella/knowledge/*",
+    "*/graxella/discovery/*",
+    "*/graxella/integrations/*",
+    "*/graxella/constitution/*",
+    "*/graxella/routing/*",
+    "*/graxella/gate/promoter.py",
+]
+
+[tool.coverage.report]
+fail_under = 75
 
 [tool.ruff]
 line-length = 100

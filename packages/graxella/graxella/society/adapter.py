@@ -17,10 +17,13 @@ dispatched via the LocalTransport are exercised end-to-end.
 """
 from __future__ import annotations
 
+import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Optional
+
+_log = logging.getLogger("graxella")
 
 from agent2society import (
     Handoff,
@@ -126,7 +129,9 @@ def _looks_like_crewai_agent(obj: Any) -> bool:
 def _extract_langgraph_tools(agent: Any) -> list[Any]:
     """Pull the bound tools out of a compiled react-agent graph. Looks
     for a ``tools`` node whose bound runnable is a ToolNode exposing
-    ``tools_by_name``. Returns [] if the shape doesn't match."""
+    ``tools_by_name``. Returns [] if the shape doesn't match — LOUDLY
+    (0C-3): without tools, this agent's skills degrade to name-only tags
+    and routing quality silently drops, so the operator must know."""
     try:
         tools_node = agent.nodes.get("tools")
         if tools_node is None:
@@ -135,8 +140,16 @@ def _extract_langgraph_tools(agent: Any) -> list[Any]:
         by_name = getattr(bound, "tools_by_name", None)
         if isinstance(by_name, dict):
             return list(by_name.values())
-    except Exception:
-        pass
+        _log.warning(
+            "graxella: could not introspect tools for agent %r — the "
+            "ToolNode shape has changed (langgraph version drift?). Its "
+            "skills degrade to name-only tags; routing quality suffers.",
+            getattr(agent, "name", "?"))
+    except Exception as exc:
+        _log.warning(
+            "graxella: tool introspection raised %s for agent %r — "
+            "skills degrade to name-only tags. Pin langgraph or report "
+            "the shape.", type(exc).__name__, getattr(agent, "name", "?"))
     return []
 
 
@@ -446,8 +459,11 @@ class Society:
         for hook in self._tracer_hooks:
             try:
                 hook(event_type, payload)
-            except Exception:
-                pass
+            except Exception as exc:
+                # Observability must never break routing — but a broken
+                # tracer hook is itself an observability outage (0C-3).
+                _log.warning("graxella: tracer hook failed on %r: %s: %s",
+                             event_type, type(exc).__name__, exc)
 
 
 def _conflict_payload(evt: Any) -> dict:

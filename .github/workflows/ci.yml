@@ -27,6 +27,23 @@ jobs:
       - run: uv sync
       - run: uv run ruff check --select E9,F63,F7,F82 packages
 
+  wheels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv run python scripts/check_wheels.py
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      # Gate scoped to the active Evidence-Loop core (see root pyproject
+      # [tool.coverage] for the omission rationale + ratchet plan).
+      - run: uv run pytest packages/graxella/tests --cov=packages/graxella/graxella
+
   tests:
     runs-on: ubuntu-latest
     strategy:

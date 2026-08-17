@@ -39,6 +39,7 @@ Both:
 """
 from __future__ import annotations
 
+import logging
 import tempfile
 from pathlib import Path
 from typing import Any, Iterable
@@ -174,11 +175,39 @@ def _register(society: Society, agent: Any, descs: list[dict]) -> str:
     return name
 
 
+#: Project-local workdir for default stores (task 0C-4). A product whose
+#: thesis is "memory is the substrate of governance" never defaults to
+#: amnesia — memory persists across runs unless the caller explicitly
+#: asks for ephemeral.
+GRAXELLA_WORKDIR = Path(".graxella")
+
+_log = logging.getLogger("graxella")
+
+
 def _default_memory(agent_id: str) -> Memory:
-    """Ephemeral sqlite memory in a tempdir -- used when the caller
-    didn't supply one. Sufficient for demos + local dev."""
+    """Persistent sqlite memory in ./.graxella/ (task 0C-4). Two runs in
+    the same project share evidence by default — that's the whole point."""
+    GRAXELLA_WORKDIR.mkdir(parents=True, exist_ok=True)
+    db = GRAXELLA_WORKDIR / "mnema.db"
+    _log.info("graxella: using persistent memory at %s (pass memory=... "
+              "to control, memory='ephemeral' for a throwaway store)", db)
+    return Memory.sqlite(db_path=str(db), agent_id=agent_id)
+
+
+def _ephemeral_memory(agent_id: str) -> Memory:
+    """Explicit opt-in throwaway store — loudly logged (task 0C-4)."""
     workdir = Path(tempfile.mkdtemp(prefix=f"{agent_id}-"))
+    _log.warning("graxella: EPHEMERAL memory at %s — evidence from this run "
+                 "is discarded and nothing will be learned from it", workdir)
     return Memory.sqlite(db_path=str(workdir / "mnema.db"), agent_id=agent_id)
+
+
+def _resolve_memory(memory: Any, agent_id: str) -> Memory:
+    if memory is None:
+        return _default_memory(agent_id)
+    if memory == "ephemeral":
+        return _ephemeral_memory(agent_id)
+    return memory
 
 
 # ---------------- router: TF-IDF (default) or small transformer -------
@@ -286,7 +315,17 @@ class _SupervisorRunnable:
 
     def invoke(self, state: Any, config: dict | None = None) -> dict:
         task = _extract_task(state)
-        picked = self._pick(task)
+        picked, pick_err = self._pick(task)
+        if pick_err is not None:
+            # 0C-3: the caller paid for LLM routing — falling back to
+            # TF-IDF silently would hide that they aren't getting it.
+            _log.warning("graxella.supervisor: LLM pick failed (%s); "
+                         "falling back to deterministic routing", pick_err)
+            if self._app is not None:
+                self._app.tracer.record(
+                    "orchestrator", "degradation.supervisor_fallback",
+                    {"task": task[:200], "err": pick_err[:300]},
+                )
         biased = f"[route:{picked}] {task}" if picked else task
         if self._app is not None:
             result, decision_id = self._app.route(biased)
@@ -302,6 +341,7 @@ class _SupervisorRunnable:
                 "score": result.score,
                 "strategy": "supervisor_llm",
                 "supervisor_pick": picked,
+                "supervisor_fallback": pick_err is not None,
                 "decision_id": decision_id,
             },
         }
@@ -312,7 +352,11 @@ class _SupervisorRunnable:
     def batch(self, states: list[Any], config: dict | None = None) -> list[dict]:
         return [self.invoke(s, config) for s in states]
 
-    def _pick(self, task: str) -> str | None:
+    def _pick(self, task: str) -> tuple[str | None, str | None]:
+        """(picked_name, error). ``error`` is set when the supervisor LLM
+        failed outright — the caller emits the degradation event (0C-3).
+        An LLM that answered but named no known agent is not an error;
+        it's a miss, and deterministic routing takes over quietly."""
         try:
             msg = self.model.invoke(
                 [("system", self.prompt), ("user", task)]
@@ -320,14 +364,14 @@ class _SupervisorRunnable:
             raw = (getattr(msg, "content", "") or "").strip()
             token = raw.split()[0].strip(".,:;\"'`").lower() if raw else ""
             if token in self._names:
-                return token
+                return token, None
             low = raw.lower()
             for n in self._names:
                 if n in low:
-                    return n
-        except Exception:
-            pass
-        return None
+                    return n, None
+            return None, None
+        except Exception as exc:
+            return None, f"{type(exc).__name__}: {exc}"
 
 
 # ---------------- public API -----------------------------------------
@@ -368,8 +412,8 @@ def mesh(agents: Iterable[Any], *,
         raise ValueError("graxella.mesh(agents=...) requires at least one agent")
 
     descs = [_describe_agent(a) for a in agents]
-    memory = memory or _default_memory("graxella-mesh")
-    store = store_path or "./graxella-mesh-routes.jsonl"
+    memory = _resolve_memory(memory, "graxella-mesh")
+    store = store_path or str(GRAXELLA_WORKDIR / "mesh-routes.jsonl")
     Path(store).parent.mkdir(parents=True, exist_ok=True)
     embed_fn = _resolve_router(router)
     society = Society(store_path=store, embed_fn=embed_fn)
@@ -410,8 +454,8 @@ def supervisor(agents: Iterable[Any], model: Any, *,
         raise ValueError("graxella.supervisor(agents=...) requires at least one agent")
 
     descs = [_describe_agent(a) for a in agents]
-    memory = memory or _default_memory("graxella-supervisor")
-    store = store_path or "./graxella-supervisor-routes.jsonl"
+    memory = _resolve_memory(memory, "graxella-supervisor")
+    store = store_path or str(GRAXELLA_WORKDIR / "supervisor-routes.jsonl")
     Path(store).parent.mkdir(parents=True, exist_ok=True)
     embed_fn = _resolve_router(router)
     society = Society(store_path=store, embed_fn=embed_fn)
