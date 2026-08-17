@@ -46,6 +46,7 @@ Design notes:
 from __future__ import annotations
 
 import time
+import uuid
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -78,6 +79,9 @@ class InstrumentedApp:
     model_id: str | None = None    # which LLM serves dispatches (I4 scoping)
     recall: bool = True            # inject similar past cases at dispatch (0B)
     recall_top_k: int = 3
+    # One id per instrumented app run — the Evidence Gate's provenance-
+    # diversity defense counts distinct sessions, not distinct rows.
+    session_id: str = field(default_factory=lambda: f"sess_{uuid.uuid4().hex[:12]}")
     _callback: GraxellaCallback = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -154,6 +158,7 @@ class InstrumentedApp:
                 err=str(exc), err_class=type(exc).__name__,
                 latency_ms=(time.perf_counter() - t0) * 1000.0,
                 domain=domain, kind="delegate", model_id=self.model_id,
+                session_id=self.session_id,
             )
             self.tracer.record("orchestrator", "dispatch.error", {
                 "decision_id": aid, "task": task[:300],
@@ -198,6 +203,7 @@ class InstrumentedApp:
             chosen=chosen,
             violations=len(violations),
             model_id=self.model_id,
+            session_id=self.session_id,
         )
         return result, aid
 

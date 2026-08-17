@@ -46,6 +46,11 @@ class OutcomeRecord(BaseModel):
     violations: int = Field(default=0, ge=0)  # constitution violations observed
     err_class: Optional[str] = None
     err: Optional[str] = None
+    # Provenance diversity (Evidence Gate): which run produced this
+    # outcome. Thresholds only loosen when positive outcomes span >=K
+    # independent sessions — flooding the ledger from one session buys
+    # an attacker nothing.
+    session_id: Optional[str] = None
 
     def to_statement(self) -> str:
         """Canonical JSON rendering — the assertion's statement body."""

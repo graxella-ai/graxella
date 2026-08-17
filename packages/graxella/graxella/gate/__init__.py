@@ -16,6 +16,13 @@ artifact. The ``promoter`` module below is the INTERIM scored gate; its
 mnema-grounded Evidence Gate in Phase 1 (build plan task 1-5).
 """
 from graxella.gate import spec as spec  # canonical Promotion Spec models
+from graxella.gate.evidence import (  # the Evidence Gate (Phase 1)
+    EvidenceGate,
+    EvidencePrior,
+    GateVerdict,
+    threshold_for,
+)
+from graxella.gate.evidence import GateDecision as EvidenceDecision
 from graxella.gate.promoter import (  # interim — deprecated, removed Phase 1
     GateDecision,
     GatePolicy,
@@ -27,6 +34,8 @@ from graxella.gate.promoter import (  # interim — deprecated, removed Phase 1
 
 __all__ = [
     "spec",
+    "EvidenceGate", "EvidencePrior", "GateVerdict", "EvidenceDecision",
+    "threshold_for",
     "PromotionGate", "Proposal", "ProposalStatus",
     "GateDecision", "GatePolicy", "ObjectiveScores",
 ]

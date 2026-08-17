@@ -131,7 +131,8 @@ class Memory:
                        kind: str = "delegate",
                        chosen: str | None = None,
                        violations: int = 0,
-                       err_class: str | None = None) -> str:
+                       err_class: str | None = None,
+                       session_id: str | None = None) -> str:
         """Persist the observed outcome of a previously-recorded decision
         as a typed OutcomeRecord (task 0A-1). Returns the assertion_id.
 
@@ -161,6 +162,7 @@ class Memory:
             violations=violations,
             err_class=err_class,
             err=(err or None) and str(err)[:500],
+            session_id=session_id,
         )
         aid = self._client.observe(
             record.to_statement(),
@@ -212,6 +214,13 @@ class Memory:
         return cases
 
     # -- typed read-side (task 0A-1 / 0A-3) ----------------------------------
+
+    def beliefs(self, *, subject: str | None = None,
+                predicate: str | None = None) -> list[dict]:
+        """Typed-query passthrough to the ledger (used by the Evidence
+        Gate and tests). Each row: id, subject, predicate, object,
+        statement, confidence, derived_from, asserted_at."""
+        return self._client.beliefs(subject=subject, predicate=predicate)
 
     def outcomes_for(self, decision_id: str) -> list[OutcomeRecord]:
         """All typed outcomes recorded against one decision."""
