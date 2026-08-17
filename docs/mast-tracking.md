@@ -18,7 +18,7 @@ Statuses: **COVERED** (shipped) · **PARTIAL** (part shipped, rest phased) ·
 | FM-1.1 | Disobey task specification (11.8%) | PARTIAL | Constitution invariants shipped; typed outcome verification pending | 0A-1, 0A-2 |
 | FM-1.2 | Disobey role specification (1.5%) | COVERED | Capability cards + conformance + drift detector (agent2society) | — |
 | FM-1.3 | Step repetition (15.7% — most common) | DESIGNED | Trajectory loop detection + budgets | 2-1 |
-| FM-1.4 | Loss of conversation history (2.8%) | COVERED | Mnema externalized state; auto-wiring lands Phase 0 | 0A-2, 0B-2 |
+| FM-1.4 | Loss of conversation history (2.8%) | COVERED | Mnema externalized state + case recall auto-wired into every dispatch (landed Phase 0) | done |
 | FM-1.5 | Unaware of termination conditions (12.4%) | DESIGNED | Termination invariants + completion checks | 2-1 |
 | FM-2.1 | Conversation reset | PARTIAL | Handoff envelope + explanation store shipped; trajectory persistence pending | 2-1 |
 | FM-2.2 | Fail to ask for clarification | COVERED | Low-confidence / low-margin detectors → human review | — |
@@ -27,10 +27,10 @@ Statuses: **COVERED** (shipped) · **PARTIAL** (part shipped, rest phased) ·
 | FM-2.5 | Ignored other agent's input | **GAP** | No detector; design owed in Phase 2 spec (hop-input vs action diff) | 2-1 (prereq) |
 | FM-2.6 | Reasoning–action mismatch | DESIGNED | Intent-vs-action mismatch miner (capture already shipped) | 1-7 |
 | FM-3.1 | Premature termination | DESIGNED | Completion scoring on outcomes + trajectory close checks | 0A-1, 2-1 |
-| FM-3.2 | No or incomplete verification | DESIGNED | Structural: every dispatch auto-records a typed outcome | 0A-2 |
+| FM-3.2 | No or incomplete verification | COVERED | Structural (landed Phase 0): every dispatch auto-records a typed outcome, exception path included — no unverified path exists | done |
 | FM-3.3 | Incorrect verification | DESIGNED | Evidence-graded verification: provenance diversity, multi-signal fusion, cited verdicts | 1-2, 1-6 |
 
-**Tally (2026-08-17): 3 covered · 4 partial · 6 designed · 1 gap.**
+**Tally at Phase 0 exit (2026-08-17): 4 covered · 4 partial · 5 designed · 1 gap** — improved from 3/4/6/1 at baseline, per the phase-exit rule.
 
 Detection-rate columns are added when the MAST-Data replay harness lands
 (task 2-8) — replay numbers are labeled *would-have-detected on foreign
