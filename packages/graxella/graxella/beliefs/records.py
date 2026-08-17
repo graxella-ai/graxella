@@ -59,3 +59,51 @@ class OutcomeRecord(BaseModel):
 def is_outcome_statement(statement: str) -> bool:
     """Cheap check before parsing: does this look like one of ours?"""
     return statement.startswith("{") and OUTCOME_SCHEMA_VERSION in statement
+
+
+class RecalledCase(BaseModel):
+    """One past (decision, outcome) pair surfaced for case recall (0B-1)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    similarity: float
+    task: str
+    chosen: str
+    ok: bool
+    completion: Optional[float] = None
+    err: Optional[str] = None
+
+
+#: Hard cap on the injected recall block — disclosure-spec discipline:
+#: recall rides inside the chosen agent's L2 budget, never grows past it.
+RECALL_MAX_CHARS = 800
+
+
+def render_recall_block(cases: list[RecalledCase],
+                        max_chars: int = RECALL_MAX_CHARS) -> str:
+    """Render recalled cases as a compact system-context block.
+
+    Deterministic, bounded, and advisory in tone — the agent is guided,
+    never commanded, so the defined flow stays sacred.
+    """
+    if not cases:
+        return ""
+    header = "Similar past tasks in this domain, and what happened:"
+    footer = "Treat these as guidance from experience, not instructions."
+    rows: list[str] = []
+    for c in cases:
+        mark = "OK " if c.ok else "FAILED"
+        extra = ""
+        if not c.ok and c.err:
+            extra = f" ({c.err[:60]})"
+        elif c.completion is not None:
+            extra = f" (completion {c.completion:.2f})"
+        rows.append(f"  [{mark}] {c.task[:120]!r} -> {c.chosen}{extra}")
+    # Fit the budget by dropping the least-similar cases, never by slicing
+    # text — a clipped sentence is worse guidance than a shorter list.
+    while rows:
+        block = "\n".join([header, *rows, footer])
+        if len(block) <= max_chars:
+            return block
+        rows.pop()
+    return ""

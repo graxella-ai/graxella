@@ -72,7 +72,8 @@ class Agent:
             tags.append(self.role)
         return tags
 
-    def _make_runner(self, peer_context: str = "") -> Callable[[Any], Any]:
+    def _make_runner(self, peer_context: str = "",
+                     context_slot: list | None = None) -> Callable[[Any], Any]:
         """Return the callable Society will invoke when this agent is picked.
 
         Priority:
@@ -105,6 +106,8 @@ class Agent:
                     msgs.append(("system", peer_context))
                 if backstory:
                     msgs.append(("system", backstory))
+                if context_slot and context_slot[0]:  # case recall (0B-2)
+                    msgs.append(("system", context_slot[0]))
                 msgs.append(("user", task))
                 result = graph.invoke({"messages": msgs})
                 messages = result.get("messages", [])

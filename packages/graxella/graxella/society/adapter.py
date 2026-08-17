@@ -83,9 +83,14 @@ class _CallableCard:
         # Society.route() picks it up right after dispatch. Per-call slot,
         # not per-thread — concurrency-safe dispatch is Phase 3 (task 3-4).
         self.last_usage: dict | None = None
+        # Dispatch-time context cell shared with the owning Society
+        # (task 0B-2): [0] holds the recall block for the current dispatch.
+        self.context_slot: list[str] | None = None
+        self.last_recall: str = ""  # what was active during the last call
 
     def __call__(self, payload: Any) -> Any:  # picked up as runner
         self.last_usage = None
+        self.last_recall = self.context_slot[0] if self.context_slot else ""
         result = self._runner(payload)
         if isinstance(result, dict):
             usage = result.get("usage")
@@ -169,16 +174,19 @@ def _usage_from_messages(messages: list) -> dict | None:
     return {"input_tokens": tin, "output_tokens": tout} if seen else None
 
 
-def _make_langgraph_runner(agent: Any, peer_context: str = "") -> Callable[[Any], Any]:
+def _make_langgraph_runner(agent: Any, peer_context: str = "",
+                           context_slot: list[str] | None = None) -> Callable[[Any], Any]:
     """Wrap a compiled LangGraph agent so its ``.invoke`` fits the
-    Society dispatch shape. Optionally prepends a system message with the
-    peer directory so this agent knows who else it can suggest handing
-    off to (LLM sees this on every call)."""
+    Society dispatch shape. ``peer_context`` is the static L0 peer
+    directory; ``context_slot`` is the per-dispatch cell (case recall,
+    task 0B-2) read at call time so injection never touches routing."""
     def runner(payload: Any) -> dict:
         task = str(payload)
         msgs: list[Any] = []
         if peer_context:
             msgs.append(("system", peer_context))
+        if context_slot and context_slot[0]:
+            msgs.append(("system", context_slot[0]))
         msgs.append(("user", task))
         result = agent.invoke({"messages": msgs})
         messages = result.get("messages", []) if isinstance(result, dict) else []
@@ -251,6 +259,10 @@ class Society:
     _store: JsonlFileStore | None = field(default=None, init=False, repr=False)
     _tracer_hooks: list[TracerHook] = field(default_factory=list, init=False, repr=False)
     _cards: dict[str, "_CallableCard"] = field(default_factory=dict, init=False, repr=False)
+    # Dispatch-time context cell (task 0B-2). Case recall is injected
+    # HERE — after routing chose, before the agent runs — never into the
+    # task string, so the router's scoring is untouched by recall.
+    _recall_slot: list[str] = field(default_factory=lambda: [""], init=False, repr=False)
 
     def __post_init__(self) -> None:
         Path(self.store_path).parent.mkdir(parents=True, exist_ok=True)
@@ -320,6 +332,7 @@ class Society:
         paths — including graxella.mesh's — must come through here."""
         if isinstance(source, _CallableCard):
             self._cards[source.name] = source
+            source.context_slot = self._recall_slot
         self._mesh.add(source)
 
     def add_with_peer_context(self, agent: Any, peer_context: str) -> None:
@@ -341,9 +354,14 @@ class Society:
 
     def route(self, task: str, *, intent: str = "",
               confidence_required: float = 0.0,
-              assumptions: list[str] | None = None) -> RouteResult:
+              assumptions: list[str] | None = None,
+              recall_context: str | None = None) -> RouteResult:
         """Route ``task`` deterministically. Dispatches through the mesh's
         LocalTransport / HttpTransport and returns an explained RouteResult.
+
+        ``recall_context`` (task 0B-2) is injected into the CHOSEN agent's
+        context at dispatch time via the shared slot — it never enters the
+        task string, so routing scores are recall-blind by construction.
         """
         handoff = Handoff(
             task=task,
@@ -352,7 +370,11 @@ class Society:
             confidence_required=confidence_required,
         )
         t0 = time.perf_counter()
-        response = self._mesh.run(handoff)
+        self._recall_slot[0] = recall_context or ""
+        try:
+            response = self._mesh.run(handoff)
+        finally:
+            self._recall_slot[0] = ""
         latency_ms = (time.perf_counter() - t0) * 1000.0
         explanation = self._mesh.explain(handoff.id)
         # Mesh.run() always writes an explanation, even on unroutable /

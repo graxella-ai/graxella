@@ -145,14 +145,16 @@ def _register(society: Society, agent: Any, descs: list[dict]) -> str:
             and hasattr(agent, "_skill_tags"):
         name = agent._routing_name()
         peer_ctx = _build_peer_context(descs, self_name=name)
-        runner = agent._make_runner(peer_context=peer_ctx)
+        runner = agent._make_runner(peer_context=peer_ctx,
+                                    context_slot=society._recall_slot)
         society._register_card(_CallableCard(name=name, runner=runner, skills=agent._skill_tags()))
         return name
     # (2) native LangGraph
     if _looks_like_langgraph_agent(agent):
         name, _, skills = _langgraph_agent_info(agent)
         peer_ctx = _build_peer_context(descs, self_name=name)
-        runner = _make_langgraph_runner(agent, peer_context=peer_ctx)
+        runner = _make_langgraph_runner(agent, peer_context=peer_ctx,
+                                        context_slot=society._recall_slot)
         society._register_card(_CallableCard(name=name, runner=runner, skills=skills))
         return name
     # (3) crewai-shaped
@@ -338,7 +340,8 @@ def mesh(agents: Iterable[Any], *,
          router: Any = None,
          store_path: str | None = None,
          domain: str | None = None,
-         model_id: str | None = None) -> InstrumentedApp:
+         model_id: str | None = None,
+         recall: bool = True) -> InstrumentedApp:
     """Wrap a collection of native agents in a deterministic mesh.
 
     Each agent gets a peer-directory system message on every call so it
@@ -377,7 +380,7 @@ def mesh(agents: Iterable[Any], *,
     runnable = _MeshRunnable(society)
     app = instrument(runnable, memory=memory, society=society,
                      tracer=tracer, gate=gate, constitution=constitution,
-                     domain=domain, model_id=model_id)
+                     domain=domain, model_id=model_id, recall=recall)
     runnable._app = app  # wire the full route pipeline back in
     return app
 

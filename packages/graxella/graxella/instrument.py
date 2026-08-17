@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from graxella.beliefs import Memory
+from graxella.beliefs.records import render_recall_block
 from graxella.constitution import Constitution
 from graxella.gate import PromotionGate
 from graxella.integrations.langgraph import GraxellaCallback
@@ -75,6 +76,8 @@ class InstrumentedApp:
     episode_store: ExperienceStore
     domain: str | None = None      # evidence scope; defaults to memory namespace
     model_id: str | None = None    # which LLM serves dispatches (I4 scoping)
+    recall: bool = True            # inject similar past cases at dispatch (0B)
+    recall_top_k: int = 3
     _callback: GraxellaCallback = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -113,6 +116,28 @@ class InstrumentedApp:
         """
         domain = self.domain or self.memory.namespace
         t0 = time.perf_counter()
+
+        # Case recall (0B): fetch verified similar experience BEFORE the
+        # dispatch and hand it to Society as dispatch-time context. Recall
+        # failures degrade loudly to no-recall — they never block routing.
+        recall_block = ""
+        if self.recall and "recall_context" not in kwargs:
+            try:
+                cases = self.memory.similar_cases(task, top_k=self.recall_top_k,
+                                                  domain=domain)
+                recall_block = render_recall_block(cases)
+                if recall_block:
+                    self.tracer.record("orchestrator", "recall.injected", {
+                        "task": task[:200], "cases": len(cases),
+                        "chars": len(recall_block),
+                        "similarities": [c.similarity for c in cases],
+                    })
+            except Exception as exc:
+                self.tracer.record("orchestrator", "degradation.recall", {
+                    "err_class": type(exc).__name__, "err": str(exc)[:300],
+                })
+            kwargs["recall_context"] = recall_block or None
+
         try:
             result = self.society.route(task, **kwargs)
         except Exception as exc:
@@ -230,7 +255,9 @@ def instrument(app: Any, *,
                constitution: Constitution | None = None,
                episode_store: ExperienceStore | None = None,
                domain: str | None = None,
-               model_id: str | None = None) -> InstrumentedApp:
+               model_id: str | None = None,
+               recall: bool = True,
+               recall_top_k: int = 3) -> InstrumentedApp:
     """Wrap ``app`` with graxella's observation + governance layer.
 
     All five auxiliary objects (``memory`` and ``society`` are required;
@@ -265,6 +292,8 @@ def instrument(app: Any, *,
         episode_store=episode_store,
         domain=domain,
         model_id=model_id,
+        recall=recall,
+        recall_top_k=recall_top_k,
     )
 
 

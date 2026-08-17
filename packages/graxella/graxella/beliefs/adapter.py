@@ -16,10 +16,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
 
+import ast
+import re
+
 from mnema.integrations.sdk import MnemaClient
 
 from graxella.beliefs.records import (OBSERVED_CONFIDENCE, OutcomeRecord,
-                                      is_outcome_statement)
+                                      RecalledCase, is_outcome_statement)
+
+# Matches the canonical decision-statement rendering produced by
+# record_decision: "[delegate] task='...' chose='...' :: rationale".
+_DECISION_RE = re.compile(r"^\[\w+\] task=('.*?'|\".*?\") chose=", re.DOTALL)
 
 
 # Public tracer callback shape: (event_type, payload) -> None
@@ -57,9 +64,10 @@ class Memory:
 
     @classmethod
     def sqlite(cls, db_path: str, *, agent_id: str, namespace: str = "default",
-               llm: Any | None = None) -> "Memory":
+               llm: Any | None = None, embedder: Any | None = None) -> "Memory":
         """Shortcut: SQLite-backed memory for one agent."""
-        return cls(agent_id=agent_id, db_path=db_path, namespace=namespace, llm=llm)
+        return cls(agent_id=agent_id, db_path=db_path, namespace=namespace,
+                   llm=llm, embedder=embedder)
 
     def attach_tracer(self, hook: TracerHook) -> None:
         """Register a callback that fires on every write we perform."""
@@ -163,6 +171,43 @@ class Memory:
         self._emit("outcome", {"assertion_id": aid, **record.model_dump(mode="json")})
         return aid
 
+    # -- case recall (task 0B-1) ---------------------------------------------
+
+    def similar_cases(self, task: str, *, top_k: int = 3,
+                      domain: str | None = None,
+                      min_similarity: float = 0.05) -> list[RecalledCase]:
+        """Memento pattern: the top-k most similar past decisions with
+        their observed outcomes. Decisions without a recorded outcome are
+        skipped — recall only serves verified experience.
+        """
+        # Over-fetch: the search corpus mixes decisions with outcome JSON
+        # and other beliefs; we filter to decision assertions afterward.
+        hits = self._client.search_assertions(task, top_k=max(top_k * 4, 12))
+        cases: list[RecalledCase] = []
+        for score, a in hits:
+            if a.get("predicate") != "decision" or score < min_similarity:
+                continue
+            parsed_task = _parse_decision_task(a.get("statement") or "")
+            if parsed_task is None:
+                continue
+            outcomes = self.outcomes_for(a["id"])
+            if not outcomes:
+                continue
+            latest = outcomes[-1]
+            if domain is not None and latest.domain != domain:
+                continue
+            cases.append(RecalledCase(
+                similarity=round(float(score), 4),
+                task=parsed_task,
+                chosen=a.get("object") or (latest.chosen or "?"),
+                ok=latest.ok,
+                completion=latest.completion,
+                err=latest.err,
+            ))
+            if len(cases) >= top_k:
+                break
+        return cases
+
     # -- typed read-side (task 0A-1 / 0A-3) ----------------------------------
 
     def outcomes_for(self, decision_id: str) -> list[OutcomeRecord]:
@@ -241,3 +286,14 @@ class Memory:
             except Exception:
                 # Tracer hooks must never break memory writes.
                 pass
+
+
+def _parse_decision_task(statement: str) -> str | None:
+    """Recover the task text from a canonical decision statement."""
+    m = _DECISION_RE.match(statement)
+    if m is None:
+        return None
+    try:
+        return str(ast.literal_eval(m.group(1)))
+    except (ValueError, SyntaxError):
+        return None
