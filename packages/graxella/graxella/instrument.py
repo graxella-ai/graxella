@@ -209,6 +209,13 @@ class InstrumentedApp:
             tools_used=tools_used,
         )
 
+        # OTel GenAI span (task 3-3) — post-hoc, real timings, opt-in.
+        if getattr(self, "_otel_tracer", None) is not None:
+            from graxella.otelbridge import emit_dispatch_span
+            emit_dispatch_span(self, task=task, result=result,
+                               decision_id=aid, domain=domain, ok=ok,
+                               latency_ms=result.latency_ms)
+
         # Reasoning–action mismatch detector (task 1-7, MAST FM-2.6).
         # Detection-only: the agent CLAIMED an action its tool trail
         # doesn't show. Flag it loudly; never correct it silently.

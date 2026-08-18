@@ -30,6 +30,7 @@ dev = [
     "hypothesis>=6.100",   # mnema's property tests
     "langgraph>=0.2",      # adapter contract tests (0C-2)
     "langchain-core>=0.3",
+    "opentelemetry-sdk>=1.25",   # 3-3 OTel GenAI emission + tests
 ]
 
 [tool.pytest.ini_options]

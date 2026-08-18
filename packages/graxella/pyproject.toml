@@ -55,6 +55,9 @@ ollama = [
 mcp = [
     "mcp>=0.9",
 ]
+otel = [
+    "opentelemetry-api>=1.25",
+]
 examples = [
     "graxella[langgraph,ollama]",
 ]
