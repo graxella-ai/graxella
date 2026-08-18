@@ -201,6 +201,39 @@ class Mesh:
             self._state = _RoutingState(new_graph, new_router)
         return card
 
+    def add_many(self, sources: Iterable[CardSource]) -> List[AgentCard]:
+        """Add a batch of agents in ONE copy-on-write cycle.
+
+        ``add()`` deepcopies the graph per call — correct for occasional
+        runtime additions, O(n²) for initial registration (the 3-4 perf
+        finding: 88s to build a 600-agent mesh). Batch registration pays
+        one deepcopy + one router build for the whole batch.
+        """
+        cards: List[AgentCard] = []
+        pending_handlers: List[tuple] = []
+        for source in sources:
+            if isinstance(source, (str, dict, AgentCard)):
+                cards.append(load_card(source))
+            else:
+                adapted = adapt(source)
+                if adapted is None:
+                    raise TypeError(
+                        f"No adapter matched object of type "
+                        f"{type(source).__name__}. Register one with "
+                        "agent2society.adapters.register_adapter."
+                    )
+                cards.append(adapted.card)
+                pending_handlers.append((adapted.card.url, adapted.handler))
+        for url, handler in pending_handlers:
+            self._local.register(url, handler)
+        with self._swap_lock:
+            new_graph = deepcopy(self._state.graph)
+            for card in cards:
+                new_graph.add_agent(card)
+            new_router = Router(new_graph, embed_fn=self._embed_fn)
+            self._state = _RoutingState(new_graph, new_router)
+        return cards
+
     def boundary(
         self,
         agent: str,

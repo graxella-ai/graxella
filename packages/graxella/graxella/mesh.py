@@ -131,9 +131,10 @@ def _build_peer_context(descs: list[dict], self_name: str | None = None) -> str:
     return "\n".join(lines)
 
 
-def _register(society: Society, agent: Any, descs: list[dict]) -> str:
-    """Register one agent into a Society with peer-awareness baked into
-    its runner. Returns the routing name.
+def _build_card(society: Society, agent: Any, descs: list[dict]) -> _CallableCard:
+    """Build one agent's card with peer-awareness baked into its runner.
+    Cards are batch-registered afterward — one copy-on-write cycle for
+    the whole mesh (3-4 perf fix).
 
     Detection order:
       1. graxella.Agent   -- has ``_make_runner(peer_context=...)``.
@@ -149,22 +150,19 @@ def _register(society: Society, agent: Any, descs: list[dict]) -> str:
         peer_ctx = _build_peer_context(descs, self_name=name)
         runner = agent._make_runner(peer_context=peer_ctx,
                                     context_slot=society._recall_slot)
-        society._register_card(_CallableCard(name=name, runner=runner, skills=agent._skill_tags()))
-        return name
+        return _CallableCard(name=name, runner=runner, skills=agent._skill_tags())
     # (2) native LangGraph
     if _looks_like_langgraph_agent(agent):
         name, _, skills = _langgraph_agent_info(agent)
         peer_ctx = _build_peer_context(descs, self_name=name)
         runner = _make_langgraph_runner(agent, peer_context=peer_ctx,
                                         context_slot=society._recall_slot)
-        society._register_card(_CallableCard(name=name, runner=runner, skills=skills))
-        return name
+        return _CallableCard(name=name, runner=runner, skills=skills)
     # (3) crewai-shaped
     if _looks_like_crewai_agent(agent):
         name = _slug(getattr(agent, "role", "agent"))
         runner = _crewai_runner(agent)
-        society._register_card(_CallableCard(name=name, runner=runner, skills=_crewai_skills(agent)))
-        return name
+        return _CallableCard(name=name, runner=runner, skills=_crewai_skills(agent))
     # (4) bare callable — the docstring's first line is its capability
     # card (cards derive from code, never from user-authored config).
     name = _slug(getattr(agent, "__name__", None) or "agent")
@@ -172,8 +170,7 @@ def _register(society: Society, agent: Any, descs: list[dict]) -> str:
     doc = (getattr(agent, "__doc__", None) or "").strip()
     if doc:
         skills.append(doc.split("\n")[0].strip())
-    society._register_card(_CallableCard(name=name, runner=agent, skills=skills))
-    return name
+    return _CallableCard(name=name, runner=agent, skills=skills)
 
 
 #: Project-local workdir for default stores (task 0C-4). A product whose
@@ -419,8 +416,7 @@ def mesh(agents: Iterable[Any], *,
     embed_fn = _resolve_router(router)
     society = Society(store_path=store, embed_fn=embed_fn)
 
-    for agent in agents:
-        _register(society, agent, descs)
+    society._register_cards([_build_card(society, a, descs) for a in agents])
 
     runnable = _MeshRunnable(society)
     app = instrument(runnable, memory=memory, society=society,
@@ -461,8 +457,7 @@ def supervisor(agents: Iterable[Any], model: Any, *,
     embed_fn = _resolve_router(router)
     society = Society(store_path=store, embed_fn=embed_fn)
 
-    for agent in agents:
-        _register(society, agent, descs)
+    society._register_cards([_build_card(society, a, descs) for a in agents])
 
     default_prompt = prompt or (
         "You are a routing supervisor for a team of specialised agents.\n"

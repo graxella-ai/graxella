@@ -357,6 +357,15 @@ class Society:
             source.context_slot = self._recall_slot
         self._mesh.add(source)
 
+    def _register_cards(self, sources: list) -> None:
+        """Batch registration: one copy-on-write cycle for the whole
+        batch (3-4 perf fix — Mesh.add is O(n) deepcopy per call)."""
+        for source in sources:
+            if isinstance(source, _CallableCard):
+                self._cards[source.name] = source
+                source.context_slot = self._recall_slot
+        self._mesh.add_many(sources)
+
     def add_with_peer_context(self, agent: Any, peer_context: str) -> None:
         """Register a LangGraph agent with a peer directory injected as a
         system message on every invocation. Used by ``graxella.mesh(...)``

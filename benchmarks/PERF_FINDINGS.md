@@ -6,7 +6,7 @@
 |---|---|---|---|
 | route() p50 @ 1000 agents | < 10 ms (routing) | 1174 ms | **33.5 ms** (35×; includes 2 ledger writes ≈ 10 ms — remaining gap closes with 3-1's write buffer) |
 | route() p95 @ 1000 agents | — | 1210 ms | 45.1 ms |
-| mesh build @ 1000 agents | — | 38 s | 51 s (aux precompute added ~13 s — rebuild-path optimization still owed) |
+| mesh build @ 1000 agents | — | 38 s | **0.1 s** (batch add_many: ONE copy-on-write cycle instead of a deepcopy per agent — the per-add deepcopy was O(n^2)) |
 
 Fixes: `sparse_cosine` over nonzero terms (O(query terms) per skill,
 was O(vocab)); skill tokens/tags precomputed at rebuild (was re-tokenized
