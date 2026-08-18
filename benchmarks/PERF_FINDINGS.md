@@ -1,5 +1,16 @@
 # Perf findings (task 3-4 — 2026-08-18, dev laptop)
 
+## Phase 3 exit status (buffered WAL memory, the production default)
+
+| Target | Measured | Verdict |
+|---|---|---|
+| gate.prior() p50 < 5 ms | 0.04 ms | MET (125x margin) |
+| route() p50 < 10 ms @ 1k agents | 38 ms (full governed dispatch incl. explanation store + telemetry) | NOT MET — 30x better than baseline (1174 ms) but the last 4x is owed; machine was under heavy load during measurement (suite times varied 5-20x same day), so re-measure quiet before profiling further |
+| mesh build @ 1k agents | 0.1 s | MET (was 38 s) |
+| crash-safety (kill mid-run loses nothing) | WAL replay tested, idempotent | MET |
+| 1M assertions flat queries | untested at that scale | NOT CLAIMED |
+
+
 ## After the routing fix (sparse cosine + precomputed aux + route memo)
 
 | Metric | Target | Before | After |

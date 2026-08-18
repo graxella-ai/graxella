@@ -38,7 +38,8 @@ def pct(xs, p):
 
 def bench_route(n_agents: int, n_calls: int) -> None:
     work = Path(tempfile.mkdtemp(prefix="graxella-perf-"))
-    memory = Memory.sqlite(str(work / "m.db"), agent_id="perf")
+    memory = Memory.sqlite(str(work / "m.db"), agent_id="perf",
+                           buffered=True)   # 3-1: the production default
     t0 = time.perf_counter()
     app = graxella.mesh([make_agent(i) for i in range(n_agents)],
                         memory=memory, store_path=str(work / "r.jsonl"),
