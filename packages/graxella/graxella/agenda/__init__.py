@@ -16,6 +16,7 @@ from graxella.agenda.datalog_miner import DatalogMiner, default_rules
 from graxella.agenda.docs_miner import DocsMiner
 from graxella.agenda.miners import (CapabilityReweigher, Proposal,
                                     RuleDistiller, TrustPromoter)
+from graxella.agenda.mismatch import MismatchMiner
 from graxella.agenda.runner import HiddenAgendaRunner
 
 # Promotion Spec wiring (S-1): miners re-emit spec.Proposal in Phase 1
@@ -25,6 +26,7 @@ from graxella.gate import spec as promotion_spec  # noqa: F401
 
 __all__ = [
     "Proposal",
+    "MismatchMiner",
     "RuleDistiller",
     "CapabilityReweigher",
     "TrustPromoter",

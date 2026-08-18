@@ -45,6 +45,7 @@ Design notes:
 """
 from __future__ import annotations
 
+import re
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -189,6 +190,7 @@ class InstrumentedApp:
             decision_id=aid,
         )
         ok, err = _infer_ok(result)
+        tools_used = list(getattr(result, "tools_used", None) or [])
         self.memory.record_outcome(
             decision_id=aid,
             ok=ok,
@@ -204,7 +206,26 @@ class InstrumentedApp:
             violations=len(violations),
             model_id=self.model_id,
             session_id=self.session_id,
+            tools_used=tools_used,
         )
+
+        # Reasoning–action mismatch detector (task 1-7, MAST FM-2.6).
+        # Detection-only: the agent CLAIMED an action its tool trail
+        # doesn't show. Flag it loudly; never correct it silently.
+        claim = _claimed_action(result.response or "")
+        if claim and not tools_used:
+            sig = self.memory.record_signal(
+                kind="reasoning_action_mismatch",
+                decision_id=aid,
+                detail={"domain": domain, "agent": result.chosen_agent,
+                        "claim": claim,
+                        "response_head": (result.response or "")[:200]},
+            )
+            self.tracer.record(
+                "constitution", "governance.reasoning_action_mismatch",
+                {"decision_id": aid, "signal_id": sig,
+                 "agent": result.chosen_agent, "claim": claim},
+            )
         return result, aid
 
     def check_constitution(self, *,
@@ -297,6 +318,22 @@ def instrument(app: Any, *,
         recall=recall,
         recall_top_k=recall_top_k,
     )
+
+
+#: Verbs whose first-person past tense claims a concrete action the tool
+#: trail should corroborate. Deliberately conservative — a miss here is a
+#: quiet non-event; a false positive erodes trust in the detector.
+_CLAIM_RE = re.compile(
+    r"\bI (?:have )?(checked|looked up|called|queried|searched|verified|"
+    r"retrieved|fetched|ran|executed|updated|contacted|cancell?ed|issued)\b",
+    re.IGNORECASE,
+)
+
+
+def _claimed_action(response: str) -> str | None:
+    """The claimed action verb, when the response asserts one (1-7)."""
+    m = _CLAIM_RE.search(response)
+    return m.group(1).lower() if m else None
 
 
 def _infer_ok(result: Any) -> tuple[bool, str | None]:

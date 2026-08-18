@@ -132,7 +132,8 @@ class Memory:
                        chosen: str | None = None,
                        violations: int = 0,
                        err_class: str | None = None,
-                       session_id: str | None = None) -> str:
+                       session_id: str | None = None,
+                       tools_used: list[str] | None = None) -> str:
         """Persist the observed outcome of a previously-recorded decision
         as a typed OutcomeRecord (task 0A-1). Returns the assertion_id.
 
@@ -163,6 +164,7 @@ class Memory:
             err_class=err_class,
             err=(err or None) and str(err)[:500],
             session_id=session_id,
+            tools_used=list(tools_used)[:10] if tools_used else None,
         )
         aid = self._client.observe(
             record.to_statement(),
@@ -175,6 +177,40 @@ class Memory:
         )
         self._emit("outcome", {"assertion_id": aid, **record.model_dump(mode="json")})
         return aid
+
+    # -- governance signals (task 1-7) ---------------------------------------
+
+    def record_signal(self, *, kind: str, decision_id: str,
+                      detail: dict) -> str:
+        """Persist one detection-only governance signal (e.g. a
+        reasoning–action mismatch), linked to the decision that raised
+        it. Miners read these back via ``signals(kind=...)``."""
+        import json as _json
+        aid = self._client.observe(
+            _json.dumps({"kind": kind, "decision_id": decision_id,
+                         **detail}, sort_keys=True, default=str),
+            subject=decision_id,
+            predicate="signal",
+            object=kind,
+            confidence=OBSERVED_CONFIDENCE,
+            source_id="detector",
+            derived_from=(decision_id,),
+        )
+        self._emit("signal", {"assertion_id": aid, "kind": kind,
+                              "decision_id": decision_id, **detail})
+        return aid
+
+    def signals(self, *, kind: str | None = None) -> list[dict]:
+        """All governance signals, optionally filtered by kind. Each row
+        carries the assertion id plus the parsed detail."""
+        import json as _json
+        out = []
+        for row in self._client.beliefs(predicate="signal"):
+            if kind is not None and row["object"] != kind:
+                continue
+            detail = _json.loads(row["statement"])
+            out.append({"assertion_id": row["id"], **detail})
+        return out
 
     # -- case recall (task 0B-1) ---------------------------------------------
 

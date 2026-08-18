@@ -54,6 +54,7 @@ class RouteResult:
     latency_ms: float | None = None
     tokens_in: int | None = None
     tokens_out: int | None = None
+    tools_used: list[str] = field(default_factory=list)  # task 1-7
 
 
 class _CallableCard:
@@ -90,15 +91,23 @@ class _CallableCard:
         # (task 0B-2): [0] holds the recall block for the current dispatch.
         self.context_slot: list[str] | None = None
         self.last_recall: str = ""  # what was active during the last call
+        self.last_tool_calls: list[str] = []  # tool names, last dispatch (1-7)
 
     def __call__(self, payload: Any) -> Any:  # picked up as runner
         self.last_usage = None
+        self.last_tool_calls = []
         self.last_recall = self.context_slot[0] if self.context_slot else ""
         result = self._runner(payload)
         if isinstance(result, dict):
             usage = result.get("usage")
             if isinstance(usage, dict):
                 self.last_usage = usage
+            calls = result.get("tool_calls")
+            if isinstance(calls, list):
+                self.last_tool_calls = [
+                    str(tc.get("name")) for tc in calls
+                    if isinstance(tc, dict) and tc.get("name")
+                ][:10]
         return result
 
 
@@ -417,6 +426,7 @@ class Society:
             latency_ms=latency_ms,
             tokens_in=(usage or {}).get("input_tokens"),
             tokens_out=(usage or {}).get("output_tokens"),
+            tools_used=list(card.last_tool_calls) if card is not None else [],
         )
         self._emit("route", {
             "handoff_id": handoff.id,

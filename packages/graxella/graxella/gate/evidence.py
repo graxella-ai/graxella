@@ -73,7 +73,14 @@ class GateDecision(str, Enum):
 
 
 class EvidencePrior(BaseModel):
-    """The ledger's answer for one gate tuple (task 1-1)."""
+    """The ledger's answer for one gate tuple (task 1-1), optionally
+    fused with paired-replay counts for the specific proposal (1-6).
+
+    Fusion rules keep the safety envelope intact: replay wins/losses
+    join the posterior, but the diversity guard counts only operational
+    ``sessions`` and the threshold self-calibrates on operational
+    ``successes`` only — a replay table alone can never auto-approve.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -81,6 +88,8 @@ class EvidencePrior(BaseModel):
     failures: int = 0
     sessions: int = 0            # distinct session_ids among successes
     citations: tuple[str, ...] = ()  # assertion ids, capped at MAX_CITATIONS
+    replay_wins: int = 0
+    replay_losses: int = 0
 
     @property
     def n(self) -> int:
@@ -88,11 +97,11 @@ class EvidencePrior(BaseModel):
 
     @property
     def alpha(self) -> float:
-        return self.successes + 1.0
+        return self.successes + self.replay_wins + 1.0
 
     @property
     def beta(self) -> float:
-        return self.failures + 1.0
+        return self.failures + self.replay_losses + 1.0
 
     @property
     def posterior_mean(self) -> float:
@@ -234,6 +243,15 @@ class EvidenceGate:
         guards.append("constitution PASS")
 
         prior = self.prior(proposal.kind, proposal.target)
+        # 1-6 fusion: recorded replay reports for THIS proposal join the
+        # posterior (threshold + diversity still run on operational
+        # evidence only — see EvidencePrior docstring).
+        from graxella.gate.audit import replay_counts_for
+        rw, rl = replay_counts_for(self.memory, proposal.id)
+        if rw or rl:
+            prior = prior.model_copy(update={"replay_wins": rw,
+                                             "replay_losses": rl})
+            guards.append(f"replay {rw}/{rw + rl}")
         thr = threshold_for(prior.successes)
         post = prior.posterior_mean
         guards.append(f"blast={proposal.blast_radius.value}")

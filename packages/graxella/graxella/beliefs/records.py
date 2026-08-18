@@ -51,6 +51,9 @@ class OutcomeRecord(BaseModel):
     # independent sessions — flooding the ledger from one session buys
     # an attacker nothing.
     session_id: Optional[str] = None
+    # Which tools the dispatched agent actually invoked (task 1-7):
+    # the mismatch detector diffs claimed actions against this list.
+    tools_used: Optional[list[str]] = Field(default=None, max_length=10)
 
     def to_statement(self) -> str:
         """Canonical JSON rendering — the assertion's statement body."""
