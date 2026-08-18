@@ -86,7 +86,7 @@ def test_recall_active_during_dispatch_only(tmp_path, memory):
     app = _mesh(tmp_path, memory, [check_order, draft_email])
     app.route("billing refund order 1")           # first: no history yet
     card = app.society._cards["check_order"]
-    assert card.last_recall == ""
+    assert "Similar past tasks" not in card.last_recall
 
     app.route("billing refund order 2")           # second: recall fires
     assert "Similar past tasks" in card.last_recall
@@ -110,7 +110,8 @@ def test_recall_off_switch(tmp_path, memory):
     app.route("billing refund order 1")
     app.route("billing refund order 2")
     card = app.society._cards["check_order"]
-    assert card.last_recall == ""
+    # L1 disclosure may occupy the slot; the RECALL block must not.
+    assert "Similar past tasks" not in card.last_recall
 
 
 def test_recall_reaches_llm_context_of_langgraph_agent(tmp_path, memory):
