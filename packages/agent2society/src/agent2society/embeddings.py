@@ -81,6 +81,25 @@ class TfidfEmbedder:
         return [self.embed_one(t) for t in texts]
 
 
+def sparse_cosine(a: dict, na: float, b: dict, nb: float) -> float:
+    """Cosine over sparse {index: value} vectors with precomputed norms.
+
+    TF-IDF vectors are ~10 nonzero terms in a vocabulary of thousands;
+    iterating nonzeros only turns the router's hot loop from O(vocab)
+    to O(query terms) per skill — the fix behind the 3-4 perf findings.
+    """
+    if not a or not b or na == 0.0 or nb == 0.0:
+        return 0.0
+    if len(b) < len(a):
+        a, b = b, a
+    dot = 0.0
+    for i, v in a.items():
+        w = b.get(i)
+        if w is not None:
+            dot += v * w
+    return dot / (na * nb)
+
+
 def cosine(a: Sequence[float], b: Sequence[float]) -> float:
     if not a or not b:
         return 0.0

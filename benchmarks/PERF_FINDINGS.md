@@ -1,4 +1,19 @@
-# Perf findings (task 3-4 baseline — 2026-08-18, dev laptop)
+# Perf findings (task 3-4 — 2026-08-18, dev laptop)
+
+## After the routing fix (sparse cosine + precomputed aux + route memo)
+
+| Metric | Target | Before | After |
+|---|---|---|---|
+| route() p50 @ 1000 agents | < 10 ms (routing) | 1174 ms | **33.5 ms** (35×; includes 2 ledger writes ≈ 10 ms — remaining gap closes with 3-1's write buffer) |
+| route() p95 @ 1000 agents | — | 1210 ms | 45.1 ms |
+| mesh build @ 1000 agents | — | 38 s | 51 s (aux precompute added ~13 s — rebuild-path optimization still owed) |
+
+Fixes: `sparse_cosine` over nonzero terms (O(query terms) per skill,
+was O(vocab)); skill tokens/tags precomputed at rebuild (was re-tokenized
+per call); size-1 route memo collapses the L1-pre-route + dispatch-route
+pair into one scoring pass. agent2society suite green throughout.
+
+## Baseline (before fixes)
 
 Measured with `benchmarks/perf_route.py` (full governed dispatch:
 routing + dispatch + decision/outcome ledger writes):
