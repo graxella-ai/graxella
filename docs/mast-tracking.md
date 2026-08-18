@@ -19,8 +19,8 @@ Statuses: **COVERED** (shipped) · **PARTIAL** (part shipped, rest phased) ·
 | FM-1.2 | Disobey role specification (1.5%) | COVERED | Capability cards + conformance + drift detector (agent2society) | — |
 | FM-1.3 | Step repetition (15.7% — most common) | DESIGNED | Trajectory loop detection + budgets | 2-1 |
 | FM-1.4 | Loss of conversation history (2.8%) | COVERED | Mnema externalized state + case recall auto-wired into every dispatch (landed Phase 0) | done |
-| FM-1.5 | Unaware of termination conditions (12.4%) | DESIGNED | Termination invariants + completion checks | 2-1 |
-| FM-2.1 | Conversation reset | PARTIAL | Handoff envelope + explanation store shipped; trajectory persistence pending | 2-1 |
+| FM-1.5 | Unaware of termination conditions (12.4%) | COVERED | Landed Phase 2: hop/token/wallclock budgets contain runaway chains; exhaustion escalates | done |
+| FM-2.1 | Conversation reset | COVERED | Landed Phase 2: trajectories are ledger objects citing every hop decision — chain state survives any restart | done |
 | FM-2.2 | Fail to ask for clarification | COVERED | Low-confidence / low-margin detectors → human review | — |
 | FM-2.3 | Task derailment | PARTIAL | Routing audit shipped; trajectory checks pending | 2-1 |
 | FM-2.4 | Information withholding | PARTIAL | Peer directory (L0) shipped; shared namespaces pending | 2-3, 3-5 |
@@ -33,6 +33,8 @@ Statuses: **COVERED** (shipped) · **PARTIAL** (part shipped, rest phased) ·
 **Tally at Phase 0 exit (2026-08-17): 4 covered · 4 partial · 5 designed · 1 gap** — improved from 3/4/6/1 at baseline, per the phase-exit rule.
 
 **Tally in Phase 1 (2026-08-18, after task 1-7): 5 covered · 4 partial · 4 designed · 1 gap.**
+
+**Tally in Phase 2 (2026-08-18, after task 2-1): 8 covered · 3 partial · 2 designed · 1 gap** — the two most frequent failure modes in MAST are now covered by tested runtime mechanism.
 
 Detection-rate columns are added when the MAST-Data replay harness lands
 (task 2-8) — replay numbers are labeled *would-have-detected on foreign
