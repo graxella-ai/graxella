@@ -54,6 +54,7 @@ jobs:
           - packages/graxella/tests
           - packages/mnema/tests
           - packages/agent2society/tests
+          - packages/axon-fabric/tests
     name: pytest ${{ matrix.suite }} (py${{ matrix.python-version }})
     steps:
       - uses: actions/checkout@v4

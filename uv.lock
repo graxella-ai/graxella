@@ -168,6 +168,12 @@ wheels = [
 name = "axon-fabric"
 version = "0.0.0"
 source = { editable = "packages/axon-fabric" }
+dependencies = [
+    { name = "graxella" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "graxella", editable = "packages/graxella" }]
 
 [[package]]
 name = "build"
@@ -753,6 +759,7 @@ name = "graxella-workspace"
 version = "0.0.0"
 source = { virtual = "." }
 dependencies = [
+    { name = "axon-fabric" },
     { name = "graxella" },
 ]
 
@@ -767,7 +774,10 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "graxella", editable = "packages/graxella" }]
+requires-dist = [
+    { name = "axon-fabric", editable = "packages/axon-fabric" },
+    { name = "graxella", editable = "packages/graxella" },
+]
 
 [package.metadata.requires-dev]
 dev = [

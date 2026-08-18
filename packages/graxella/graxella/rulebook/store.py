@@ -68,7 +68,8 @@ class Rulebook:
         """
         self.reload()
         for rule in reversed(self._rules):
-            if rule.kind != "rule" or rule.replace_skill != tool_name:
+            if rule.kind not in ("rule", "tool_binding", "transform") \
+                    or rule.replace_skill != tool_name:
                 continue
             if intent is not None and rule.intent != intent:
                 continue
@@ -120,7 +121,8 @@ class Rulebook:
             kind=(proposal.kind if not isinstance(proposal, _spec.Proposal)
                   else spec_p.kind.value),
             intent=str(change.get("if_intent") or change.get("intent") or ""),
-            replace_skill=str(change.get("replace_skill") or ""),
+            replace_skill=str(change.get("replace_skill")
+                              or spec_p.target.tool or ""),
             with_skill=str(change.get("with_skill") or ""),
             recipe=_recipe_from_change(change),
             change=change,
@@ -219,6 +221,8 @@ def _recipe_from_change(change: dict[str, Any]) -> dict[str, Any]:
     """
     if "recipe" in change and isinstance(change["recipe"], dict):
         return dict(change["recipe"])
-    if "field_map" in change:
-        return {"field_map": change["field_map"]}
+    if any(k in change for k in ("field_map", "static_defaults", "drop_fields")):
+        return {"field_map": dict(change.get("field_map") or {}),
+                "static_defaults": dict(change.get("static_defaults") or {}),
+                "drop_fields": list(change.get("drop_fields") or ())}
     return {}

@@ -8,7 +8,10 @@ version = "0.0.0"
 description = "Graxella tool-boundary fabric: MCP drift interception, verified healing transforms, sentinel drift detection. B10 port lands in Phase 2 (build plan tasks 2-4/2-5/2-6)."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = ["graxella"]
+
+[tool.uv.sources]
+graxella = { workspace = true }
 
 [tool.setuptools.packages.find]
 where = ["src"]
