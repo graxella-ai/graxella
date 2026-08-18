@@ -19,6 +19,7 @@ from typing import Any, Callable, Optional
 import ast
 import logging
 import re
+from pathlib import Path
 
 from mnema.integrations.sdk import MnemaClient
 
@@ -51,7 +52,12 @@ class Memory:
     namespace: str = "default"
     llm: Any | None = None
     embedder: Any | None = None
+    # Task 3-1: durable write buffer — takes the two-per-dispatch SQLite
+    # writes off the hot path (WAL append + background flush; reads
+    # drain first; crash recovery on startup).
+    buffered: bool = False
     _client: MnemaClient | None = field(default=None, init=False, repr=False)
+    _buffer: Any | None = field(default=None, init=False, repr=False)
     _tracer_hooks: list[TracerHook] = field(default_factory=list, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -62,15 +68,31 @@ class Memory:
             llm=self.llm,
             embedder=self.embedder,
         )
+        if self.buffered:
+            from graxella.beliefs.buffer import WalBuffer
+            self._buffer = WalBuffer(
+                self._client, Path(self.db_path).with_suffix(".wal.jsonl"))
+
+    def _observe(self, statement: str, **kwargs: Any) -> str:
+        """Write path: buffered when enabled, direct otherwise."""
+        if self._buffer is not None:
+            return self._buffer.observe(statement, **kwargs)
+        return self._client.observe(statement, **kwargs)
+
+    def _sync(self) -> None:
+        """Read barrier: never read a ledger behind your own writes."""
+        if self._buffer is not None:
+            self._buffer.drain()
 
     # -- construction helpers ------------------------------------------------
 
     @classmethod
     def sqlite(cls, db_path: str, *, agent_id: str, namespace: str = "default",
-               llm: Any | None = None, embedder: Any | None = None) -> "Memory":
+               llm: Any | None = None, embedder: Any | None = None,
+               buffered: bool = False) -> "Memory":
         """Shortcut: SQLite-backed memory for one agent."""
         return cls(agent_id=agent_id, db_path=db_path, namespace=namespace,
-                   llm=llm, embedder=embedder)
+                   llm=llm, embedder=embedder, buffered=buffered)
 
     def attach_tracer(self, hook: TracerHook) -> None:
         """Register a callback that fires on every write we perform."""
@@ -96,7 +118,7 @@ class Memory:
         """
         statement = f"[{decision_type}] task={task!r} chose={chosen!r} :: {rationale}"
         subject = f"decision::{decision_type}::{chosen}"
-        aid = self._client.observe(
+        aid = self._observe(
             statement,
             subject=subject,
             predicate="decision",
@@ -166,7 +188,7 @@ class Memory:
             session_id=session_id,
             tools_used=list(tools_used)[:10] if tools_used else None,
         )
-        aid = self._client.observe(
+        aid = self._observe(
             record.to_statement(),
             subject=decision_id,
             predicate="outcome",
@@ -186,7 +208,7 @@ class Memory:
         reasoning–action mismatch), linked to the decision that raised
         it. Miners read these back via ``signals(kind=...)``."""
         import json as _json
-        aid = self._client.observe(
+        aid = self._observe(
             _json.dumps({"kind": kind, "decision_id": decision_id,
                          **detail}, sort_keys=True, default=str),
             subject=decision_id,
@@ -205,7 +227,7 @@ class Memory:
         carries the assertion id plus the parsed detail."""
         import json as _json
         out = []
-        for row in self._client.beliefs(predicate="signal"):
+        for row in self.beliefs(predicate="signal"):
             if kind is not None and row["object"] != kind:
                 continue
             detail = _json.loads(row["statement"])
@@ -223,6 +245,7 @@ class Memory:
         """
         # Over-fetch: the search corpus mixes decisions with outcome JSON
         # and other beliefs; we filter to decision assertions afterward.
+        self._sync()
         hits = self._client.search_assertions(task, top_k=max(top_k * 4, 12))
         cases: list[RecalledCase] = []
         for score, a in hits:
@@ -256,11 +279,12 @@ class Memory:
         """Typed-query passthrough to the ledger (used by the Evidence
         Gate and tests). Each row: id, subject, predicate, object,
         statement, confidence, derived_from, asserted_at."""
+        self._sync()
         return self._client.beliefs(subject=subject, predicate=predicate)
 
     def outcomes_for(self, decision_id: str) -> list[OutcomeRecord]:
         """All typed outcomes recorded against one decision."""
-        rows = self._client.beliefs(subject=decision_id, predicate="outcome")
+        rows = self.beliefs(subject=decision_id, predicate="outcome")
         return [OutcomeRecord.from_statement(r["statement"]) for r in rows
                 if is_outcome_statement(r["statement"])]
 
@@ -270,7 +294,7 @@ class Memory:
         Every number here is computed from ledger assertions alone; there
         is no side-channel bookkeeping to drift out of sync.
         """
-        rows = self._client.beliefs(predicate="outcome")
+        rows = self.beliefs(predicate="outcome")
         records = [OutcomeRecord.from_statement(r["statement"]) for r in rows
                    if is_outcome_statement(r["statement"])]
         if domain is not None:
@@ -302,15 +326,18 @@ class Memory:
     # -- read-side (forwarded) ----------------------------------------------
 
     def search(self, query: str, *, top_k: int = 5) -> list[tuple[float, str]]:
+        self._sync()
         return self._client.search(query, top_k=top_k)
 
     def inject(self, *, max_chars: int = 2000) -> str:
         return self._client.inject(max_chars=max_chars)
 
     def why(self, assertion_id: str) -> dict:
+        self._sync()
         return self._client.why(assertion_id)
 
     def timeline(self, subject: str) -> list[dict]:
+        self._sync()
         return self._client.timeline(subject)
 
     def report(self) -> dict:

@@ -189,7 +189,9 @@ def _default_memory(agent_id: str) -> Memory:
     db = GRAXELLA_WORKDIR / "mnema.db"
     _log.info("graxella: using persistent memory at %s (pass memory=... "
               "to control, memory='ephemeral' for a throwaway store)", db)
-    return Memory.sqlite(db_path=str(db), agent_id=agent_id)
+    # Buffered by default (3-1): ledger writes ride the WAL buffer off
+    # the dispatch hot path; reads drain first; crash recovery on start.
+    return Memory.sqlite(db_path=str(db), agent_id=agent_id, buffered=True)
 
 
 def _ephemeral_memory(agent_id: str) -> Memory:

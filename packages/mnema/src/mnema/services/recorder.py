@@ -32,6 +32,7 @@ class MemoryRecorder:
         source_id: str = "agent",
         namespace: str | None = None,
         derived_from: tuple[str, ...] = (),
+        assertion_id: str | None = None,
     ) -> Assertion:
         """Build and record a new observed assertion.
 
@@ -39,7 +40,9 @@ class MemoryRecorder:
         on (I4: retraction cascade) — e.g. an outcome derives from the
         decision that produced it.
         """
+        kw = {'id': assertion_id} if assertion_id else {}
         assertion = Assertion(
+            **kw,
             agent_id=agent_id,
             namespace=namespace or settings.default_namespace,
             statement=statement,

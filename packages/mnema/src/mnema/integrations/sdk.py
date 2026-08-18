@@ -27,7 +27,10 @@ class MnemaClient:
         llm: Any | None = None,
         embedder: Any | None = None,
     ) -> None:
-        url = db_path if db_path.startswith("sqlite") else f"sqlite:///{db_path}"
+        # Any SQLAlchemy URL passes through untouched (postgresql+psycopg://
+        # engages the Postgres backend — task 3-2); bare paths get the
+        # sqlite default.
+        url = db_path if "://" in db_path else f"sqlite:///{db_path}"
         self._store = SqliteMnemaStore(url)
         self.agent_id = agent_id
         self.namespace = namespace
@@ -55,6 +58,7 @@ class MnemaClient:
         confidence: float | None = None,
         source_id: str = "agent",
         derived_from: tuple[str, ...] = (),
+        assertion_id: str | None = None,
     ) -> str:
         """Record an observation. Returns assertion_id.
 
@@ -72,6 +76,7 @@ class MnemaClient:
             source_id=source_id,
             namespace=self.namespace,
             derived_from=derived_from,
+            assertion_id=assertion_id,
         )
         return a.id
 
