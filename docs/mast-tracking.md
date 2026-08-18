@@ -25,12 +25,14 @@ Statuses: **COVERED** (shipped) · **PARTIAL** (part shipped, rest phased) ·
 | FM-2.3 | Task derailment | PARTIAL | Routing audit shipped; trajectory checks pending | 2-1 |
 | FM-2.4 | Information withholding | PARTIAL | Peer directory (L0) shipped; shared namespaces pending | 2-3, 3-5 |
 | FM-2.5 | Ignored other agent's input | **GAP** | No detector; design owed in Phase 2 spec (hop-input vs action diff) | 2-1 (prereq) |
-| FM-2.6 | Reasoning–action mismatch | DESIGNED | Intent-vs-action mismatch miner (capture already shipped) | 1-7 |
+| FM-2.6 | Reasoning–action mismatch | COVERED | Landed Phase 1: live detector (claimed action vs tool trail) → ledger signal + governance event; MismatchMiner turns repeated patterns into gated prompt proposals with citations | done |
 | FM-3.1 | Premature termination | DESIGNED | Completion scoring on outcomes + trajectory close checks | 0A-1, 2-1 |
 | FM-3.2 | No or incomplete verification | COVERED | Structural (landed Phase 0): every dispatch auto-records a typed outcome, exception path included — no unverified path exists | done |
 | FM-3.3 | Incorrect verification | DESIGNED | Evidence-graded verification: provenance diversity, multi-signal fusion, cited verdicts | 1-2, 1-6 |
 
 **Tally at Phase 0 exit (2026-08-17): 4 covered · 4 partial · 5 designed · 1 gap** — improved from 3/4/6/1 at baseline, per the phase-exit rule.
+
+**Tally in Phase 1 (2026-08-18, after task 1-7): 5 covered · 4 partial · 4 designed · 1 gap.**
 
 Detection-rate columns are added when the MAST-Data replay harness lands
 (task 2-8) — replay numbers are labeled *would-have-detected on foreign
