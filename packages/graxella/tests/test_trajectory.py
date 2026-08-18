@@ -79,16 +79,34 @@ def test_loop_is_detected_and_escalated(tmp_path, memory):
     assert len(app.tracer.events(event_type="trajectory.escalated")) == 1
 
 
-def test_hop_budget_contains_runaway_chains(tmp_path, memory):
+def _churn_pair(usage=None):
+    """Two agents that chain work between each other endlessly, with
+    varying content so loop detection doesn't fire first. (Self-handoffs
+    now complete immediately — a real-LLM lesson from showcase 08.)"""
     counter = {"n": 0}
 
-    def churner(payload):
-        """process billing refunds for orders step by step"""
+    def _result(target):
         counter["n"] += 1
-        return {"result": f"step {counter['n']} done. "
-                          f"HANDOFF: churner :: continue step {counter['n'] + 1}"}
+        out = {"result": f"step {counter['n']} done. HANDOFF: {target} :: "
+                         f"continue the billing refund order step "
+                         f"{counter['n'] + 1}"}
+        if usage:
+            out["usage"] = dict(usage)
+        return out
 
-    app = _mesh(tmp_path, memory, [churner])
+    def churner_a(payload):
+        """process billing refunds for orders step by step"""
+        return _result("churner_b")
+
+    def churner_b(payload):
+        """verify billing refund order steps and continue processing"""
+        return _result("churner_a")
+
+    return churner_a, churner_b
+
+
+def test_hop_budget_contains_runaway_chains(tmp_path, memory):
+    app = _mesh(tmp_path, memory, list(_churn_pair()))
     t = app.run_trajectory("billing refund order 1",
                            budget=TrajectoryBudget(max_hops=3))
     assert t.status == "budget_exhausted"   # FM-1.5: contained, escalated
@@ -98,21 +116,26 @@ def test_hop_budget_contains_runaway_chains(tmp_path, memory):
 
 
 def test_token_budget(tmp_path, memory):
-    counter = {"n": 0}
-
-    def pricey(payload):
-        """process billing refunds for orders with the expensive model"""
-        counter["n"] += 1
-        return {"result": f"round {counter['n']}. HANDOFF: pricey :: "
-                          f"continue processing the billing refund order "
-                          f"round {counter['n'] + 1}",
-                "usage": {"input_tokens": 60, "output_tokens": 40}}
-
-    app = _mesh(tmp_path, memory, [pricey])
+    app = _mesh(tmp_path, memory,
+                list(_churn_pair(usage={"input_tokens": 60,
+                                        "output_tokens": 40})))
     t = app.run_trajectory("billing refund order 2",
                            budget=TrajectoryBudget(max_hops=50, max_tokens=150))
     assert t.status == "budget_exhausted"
     assert t.n_hops == 2                    # 100 tokens/hop; capped at 150
+
+
+def test_self_handoff_completes_instead_of_spinning(tmp_path, memory):
+    def solo(payload):
+        """process billing refunds for orders step by step"""
+        return {"result": "done my part. HANDOFF: solo :: keep going"}
+
+    app = _mesh(tmp_path, memory, [solo])
+    t = app.run_trajectory("billing refund order 9",
+                           budget=TrajectoryBudget(max_hops=5))
+    assert t.status == "completed" and t.n_hops == 1
+    events = app.tracer.events(event_type="trajectory.self_handoff_ignored")
+    assert len(events) == 1
 
 
 def test_handoff_to_unknown_peer_finishes_loudly(tmp_path, memory):

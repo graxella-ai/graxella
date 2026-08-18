@@ -119,6 +119,15 @@ def run_trajectory(app: Any, task: str, *,
             status = "completed"          # FM-1.5: no handoff = declared done
             break
         target, subtask = m.group(1).lower(), m.group(2).strip()
+        if target == result.chosen_agent:
+            # A real-LLM failure mode (small models hand off to
+            # themselves): the work is already in this response —
+            # complete, loudly, instead of spinning (FM-1.3 subtype).
+            app.tracer.record("orchestrator", "trajectory.self_handoff_ignored",
+                              {"trajectory_id": tid, "agent": target,
+                               "hop": len(hops)})
+            status = "completed"
+            break
         if target not in set(app.society.agents()):
             app.tracer.record("orchestrator", "degradation.handoff_unknown",
                               {"trajectory_id": tid, "target": target,

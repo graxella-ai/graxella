@@ -108,6 +108,10 @@ class _CallableCard:
                     str(tc.get("name")) for tc in calls
                     if isinstance(tc, dict) and tc.get("name")
                 ][:10]
+            # Telemetry captured — the mesh response is the TEXT, never
+            # the runner's envelope dict (a dict repr is not a reply).
+            if "result" in result:
+                return result["result"]
         return result
 
 

@@ -71,6 +71,9 @@ class ToolInterceptor:
         self.model_id = model_id
         self.session_id = session_id or f"sess_{uuid.uuid4().hex[:12]}"
         self.healer_calls = 0   # observability: LLM invocations, ever
+        # Rung 2.5: the recipe proposed at heal-once, reused deterministically
+        # while its proposal awaits review — the LLM truly fires ONCE.
+        self._proposed_recipe: TransformRecipe | None = None
 
     def __call__(self, args: dict) -> Any:
         aid = self.memory.record_decision(
@@ -108,11 +111,19 @@ class ToolInterceptor:
             self._outcome(aid, ok=True, kind="transform")
             return result
 
+        # Rung 2.5: a recipe was already proposed this process and is
+        # awaiting review — reuse it deterministically, zero LLM.
+        if self._proposed_recipe is not None:
+            result = self.fallback(self._proposed_recipe.apply(dict(args)))
+            self._outcome(aid, ok=True, kind="transform")
+            return result
+
         # Rung 3: heal once, then propose — never heal silently twice.
         if self.healer is not None:
             self.healer_calls += 1
             recipe = self.healer(self.tool_name, dict(args), error)
             if recipe is not None:
+                self._proposed_recipe = recipe
                 healed_args = recipe.apply(dict(args))
                 result = self.fallback(healed_args)   # raises = rung 4
                 self._outcome(aid, ok=True, kind="transform")
