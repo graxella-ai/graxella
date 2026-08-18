@@ -252,6 +252,12 @@ class InstrumentedApp:
     def why(self, assertion_id: str) -> dict:
         return self.tracer.why(assertion_id, memory=self.memory)
 
+    def run_trajectory(self, task: str, *, budget=None):
+        """Bounded multi-hop dispatch (Phase 2 task 2-1) — see
+        graxella.trajectory for the loop and its containments."""
+        from graxella.trajectory import run_trajectory
+        return run_trajectory(self, task, budget=budget)
+
     # -- internal -----------------------------------------------------------
 
     def _enforce_constitution(self, *, applies_to: str, output: Any,

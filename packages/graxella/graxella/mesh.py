@@ -125,8 +125,9 @@ def _build_peer_context(descs: list[dict], self_name: str | None = None) -> str:
         tools_str = ", ".join(d["tool_names"]) or "(no tools)"
         lines.append(f"  - {d['name']}: {tools_str}")
     lines.append("")
-    lines.append("If a request would be handled better by a peer, say so explicitly "
-                 "in your response so the operator can re-route. Otherwise, do your job.")
+    lines.append("If a request would be handled better by a peer, end your response "
+                 "with exactly one line: HANDOFF: <peer_name> :: <task for them>. "
+                 "The runtime will route it, audited. Otherwise, do your job.")
     return "\n".join(lines)
 
 
