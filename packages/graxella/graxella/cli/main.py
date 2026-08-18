@@ -165,6 +165,49 @@ def cmd_tokens(args: argparse.Namespace) -> int:
     return 0
 
 
+def _gate_memory(args: argparse.Namespace):
+    from graxella.beliefs import Memory
+    return Memory.sqlite(args.db, agent_id=args.agent,
+                         namespace=args.namespace)
+
+
+def cmd_gate_list(args: argparse.Namespace) -> int:
+    """Review queue from the ledger (task 1-8)."""
+    from graxella.gate.evidence import pending_from_ledger
+    rows = pending_from_ledger(_gate_memory(args))
+    if not rows:
+        print("no proposals awaiting review")
+        return 0
+    for r in rows:
+        print(f"{r['proposal_id']}  [{r['kind']} @ {r['domain']}]  "
+              f"posterior={r['posterior']}  n={r['evidence_n']}")
+        print(f"    {r['reason']}")
+    return 0
+
+
+def cmd_gate_why(args: argparse.Namespace) -> int:
+    from graxella.gate.evidence import EvidenceGate
+    print(EvidenceGate(_gate_memory(args)).why(args.id))
+    return 0
+
+
+def cmd_gate_approve(args: argparse.Namespace) -> int:
+    from graxella.gate.evidence import EvidenceGate
+    aid = EvidenceGate(_gate_memory(args)).approve(
+        args.id, by=args.reviewer, note=args.note or "")
+    print(f"approved {args.id} by {args.reviewer}  (recorded: {aid})")
+    print("the next decide() on this proposal folds this in")
+    return 0
+
+
+def cmd_gate_reject(args: argparse.Namespace) -> int:
+    from graxella.gate.evidence import EvidenceGate
+    aid = EvidenceGate(_gate_memory(args)).reject(
+        args.id, by=args.reviewer, note=args.note or "")
+    print(f"rejected {args.id} by {args.reviewer}  (recorded: {aid})")
+    return 0
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     store = _open_store(args.store)
     rulebook = _open_rulebook(args.rulebook)
@@ -219,6 +262,27 @@ def _build_parser() -> argparse.ArgumentParser:
     au.add_argument("--rulebook", required=True)
     au.add_argument("--out", required=True)
     au.set_defaults(func=cmd_audit)
+
+    gate = sub.add_parser("gate", help="Evidence Gate review workflow")
+    gsub = gate.add_subparsers(dest="cmd", required=True)
+    for name, fn, extra in (
+        ("list", cmd_gate_list, ()),
+        ("why", cmd_gate_why, ("--id",)),
+        ("approve", cmd_gate_approve, ("--id", "--as", "--note")),
+        ("reject", cmd_gate_reject, ("--id", "--as", "--note")),
+    ):
+        g = gsub.add_parser(name)
+        g.add_argument("--db", required=True, help="mnema sqlite db path")
+        g.add_argument("--agent", default="graxella-mesh")
+        g.add_argument("--namespace", default="default")
+        if "--id" in extra:
+            g.add_argument("--id", required=True, help="proposal id")
+        if "--as" in extra:
+            g.add_argument("--as", dest="reviewer", required=True,
+                           help="reviewer handle recorded in the ledger")
+        if "--note" in extra:
+            g.add_argument("--note", default="")
+        g.set_defaults(func=fn)
 
     tk = sub.add_parser("tokens",
                         help="token/cost accounting from the outcome ledger")

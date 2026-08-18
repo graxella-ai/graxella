@@ -185,6 +185,46 @@ class EvidenceGate:
     def get(self, proposal_id: str) -> Optional[Proposal]:
         return self._pending.get(proposal_id)
 
+    # -- human review (task 1-8) --------------------------------------------
+    # Review state lives in the LEDGER, not in this instance: the CLI runs
+    # in another process, and the next decide() — wherever it runs —
+    # honors what the human recorded.
+
+    def approve(self, proposal_id: str, *, by: str, note: str = "") -> str:
+        """Record a human approval for a proposal. Returns assertion id."""
+        return self._record_human(proposal_id, "human_approved", by, note)
+
+    def reject(self, proposal_id: str, *, by: str, note: str = "") -> str:
+        """Record a human rejection. Rejections are always honored."""
+        return self._record_human(proposal_id, "human_rejected", by, note)
+
+    def human_decision_for(self, proposal_id: str) -> Optional[dict]:
+        """The latest recorded human decision, if any."""
+        rows = [r for r in self.memory.beliefs(subject=proposal_id,
+                                               predicate="gate_verdict")
+                if r["object"] in ("human_approved", "human_rejected")]
+        if not rows:
+            return None
+        latest = rows[-1]
+        data = json.loads(latest["statement"])
+        data["assertion_id"] = latest["id"]
+        return data
+
+    def _record_human(self, proposal_id: str, decision: str,
+                      by: str, note: str) -> str:
+        aid = self.memory._client.observe(
+            json.dumps({"type": "human", "decision": decision,
+                        "by": by, "note": note,
+                        "proposal_id": proposal_id}, sort_keys=True),
+            subject=proposal_id,
+            predicate="gate_verdict",
+            object=decision,
+            confidence=1.0,
+            source_id=f"operator:{by}",
+        )
+        self._pending.pop(proposal_id, None)
+        return aid
+
     # -- 1-1: the prior query engine -----------------------------------------
 
     def refresh(self) -> None:
@@ -309,6 +349,28 @@ class EvidenceGate:
         """Evaluate, write the verdict to the ledger (cited), and apply
         the spec transition. Returns (verdict, transitioned proposal)."""
         verdict = self.evaluate(proposal)
+
+        # Honor a recorded human decision (1-8) — but only where the
+        # evidence path said NEEDS_HUMAN. Hard blocks and auto-rejects
+        # stand even against a human approval (constitution over people,
+        # people over uncertainty); human REJECTIONS are always honored.
+        human = self.human_decision_for(proposal.id)
+        if human is not None and verdict.decision is not GateDecision.AUTO_REJECT:
+            if human["decision"] == "human_rejected":
+                verdict = verdict.model_copy(update={
+                    "decision": GateDecision.AUTO_REJECT,
+                    "reason": f"rejected by {human['by']}: "
+                              f"{human.get('note') or 'no note'}",
+                })
+            elif verdict.decision is GateDecision.NEEDS_HUMAN:
+                verdict = verdict.model_copy(update={
+                    "decision": GateDecision.AUTO_APPROVE,
+                    "reason": f"approved by {human['by']} "
+                              f"(on file: {human['assertion_id']})",
+                })
+        elif human is not None and human["decision"] == "human_rejected":
+            pass  # already rejecting — nothing to override
+
         vid = self._record_verdict(proposal, verdict)
         verdict = verdict.model_copy(update={"verdict_assertion_id": vid})
 
@@ -318,6 +380,10 @@ class EvidenceGate:
         ) + (EvidenceCitation(assertion_id=vid,
                               role=EvidenceRole.CONSTITUTION_CHECK,
                               note="gate verdict"),)
+        if human is not None and human["decision"] == "human_approved":
+            cites += (EvidenceCitation(assertion_id=human["assertion_id"],
+                                       role=EvidenceRole.OPERATOR_DECISION,
+                                       note=f"approved by {human['by']}"),)
 
         if verdict.decision is GateDecision.AUTO_APPROVE:
             updated = proposal.with_status(ProposalStatus.APPROVED, by=by,
@@ -357,6 +423,12 @@ class EvidenceGate:
             return f"no gate verdict recorded for {proposal_id}"
         latest = rows[-1]
         data = json.loads(latest["statement"])
+        if data.get("type") == "human":
+            return (f"decision:   {data['decision'].upper()}\n"
+                    f"by:         {data['by']}\n"
+                    f"note:       {data.get('note') or '—'}\n"
+                    f"recorded:   {latest['id']}\n"
+                    f"(re-run decide() to fold this into a full verdict)")
         verdict = GateVerdict.model_validate(data)
         return verdict.render()
 
@@ -395,6 +467,34 @@ class EvidenceGate:
         )
 
 
+def pending_from_ledger(memory: Memory) -> list[dict]:
+    """Cross-process review queue (task 1-8): proposals whose LATEST
+    verdict is needs_human with no human decision on file. Each row:
+    proposal_id, kind, domain, reason, posterior, evidence_n."""
+    by_proposal: dict[str, list[dict]] = {}
+    for row in memory.beliefs(predicate="gate_verdict"):
+        by_proposal.setdefault(row["subject"], []).append(row)
+    out: list[dict] = []
+    for pid, rows in sorted(by_proposal.items()):
+        if any(r["object"] in ("human_approved", "human_rejected")
+               for r in rows):
+            continue
+        latest = rows[-1]
+        if latest["object"] != GateDecision.NEEDS_HUMAN.value:
+            continue
+        data = json.loads(latest["statement"])
+        out.append({
+            "proposal_id": pid,
+            "kind": data.get("kind"),
+            "domain": data.get("domain"),
+            "reason": data.get("reason"),
+            "posterior": data.get("posterior"),
+            "evidence_n": (data.get("prior") or {}).get("successes", 0)
+                          + (data.get("prior") or {}).get("failures", 0),
+        })
+    return out
+
+
 def _constitution_block(constitution) -> HardBlock:
     """Adapt a graxella Constitution into a hard block: any invariant
     violation on the proposal payload is a final rejection."""
@@ -410,6 +510,7 @@ def _constitution_block(constitution) -> HardBlock:
 
 __all__ = [
     "EvidenceGate", "EvidencePrior", "GateVerdict", "GateDecision",
-    "threshold_for", "THR_FLOOR", "THR_SPAN", "THR_HALF",
+    "threshold_for", "pending_from_ledger",
+    "THR_FLOOR", "THR_SPAN", "THR_HALF",
     "REJECT_BELOW", "MIN_N_FOR_REJECT", "WIDE_MIN_SUCCESSES",
 ]
