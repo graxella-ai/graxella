@@ -17,7 +17,7 @@ Statuses: **COVERED** (shipped) · **PARTIAL** (part shipped, rest phased) ·
 |---|---|---|---|---|
 | FM-1.1 | Disobey task specification (11.8%) | PARTIAL | Constitution invariants shipped; typed outcome verification pending | 0A-1, 0A-2 |
 | FM-1.2 | Disobey role specification (1.5%) | COVERED | Capability cards + conformance + drift detector (agent2society) | — |
-| FM-1.3 | Step repetition (15.7% — most common) | DESIGNED | Trajectory loop detection + budgets | 2-1 |
+| FM-1.3 | Step repetition (15.7% — most common) | COVERED | Landed Phase 2: repeated (agent, response-state) signatures stop the chain and escalate | done |
 | FM-1.4 | Loss of conversation history (2.8%) | COVERED | Mnema externalized state + case recall auto-wired into every dispatch (landed Phase 0) | done |
 | FM-1.5 | Unaware of termination conditions (12.4%) | COVERED | Landed Phase 2: hop/token/wallclock budgets contain runaway chains; exhaustion escalates | done |
 | FM-2.1 | Conversation reset | COVERED | Landed Phase 2: trajectories are ledger objects citing every hop decision — chain state survives any restart | done |
