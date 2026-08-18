@@ -392,7 +392,17 @@ class Society:
             confidence_required=confidence_required,
         )
         t0 = time.perf_counter()
-        self._recall_slot[0] = recall_context or ""
+        # Disclosure L1 (task 2-3): pre-route for the shortlist, then hand
+        # the likely winner one-line summaries of its runner-up peers —
+        # informed handoffs at flat cost (top-k only, however big the mesh).
+        l1_block = ""
+        try:
+            shortlist = self._mesh.route(task, top_k=3)
+            l1_block = _build_l1_block(shortlist, self._cards)
+        except Exception as exc:
+            _log.warning("graxella: L1 disclosure skipped: %s", exc)
+        self._recall_slot[0] = "\n\n".join(
+            b for b in (recall_context or "", l1_block) if b)
         try:
             response = self._mesh.run(handoff)
         finally:
@@ -474,6 +484,30 @@ class Society:
                 # tracer hook is itself an observability outage (0C-3).
                 _log.warning("graxella: tracer hook failed on %r: %s: %s",
                              event_type, type(exc).__name__, exc)
+
+
+#: Disclosure-spec L1 budget: ≤120 tokens ≈ 480 chars for the whole block.
+_L1_MAX_CHARS = 480
+
+
+def _build_l1_block(shortlist: list, cards: dict) -> str:
+    """Tier L1 (docs/specs/disclosure-spec.md): one-line skill summaries
+    for the routing runner-ups, injected into the WINNER's context so its
+    handoff choices are informed. Router-driven, deterministic, bounded —
+    cost is flat in mesh size because only the shortlist is disclosed."""
+    if len(shortlist) < 2:
+        return ""
+    winner = shortlist[0].agent
+    lines = ["Peers ranked most relevant to this task (for handoffs):"]
+    for cand in shortlist[1:3]:
+        if cand.agent == winner:
+            continue
+        card = cards.get(cand.agent)
+        skills = "; ".join(s["name"] for s in (card.skills if card else []))[:90]
+        lines.append(f"  - {cand.agent}: {skills or cand.skill_id}")
+    if len(lines) == 1:
+        return ""
+    return "\n".join(lines)[:_L1_MAX_CHARS]
 
 
 def _conflict_payload(evt: Any) -> dict:
