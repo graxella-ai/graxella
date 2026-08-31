@@ -43,11 +43,7 @@ if TYPE_CHECKING:
 
 # --------------------------------------------------------------- routing shim
 def _recipe_from(rule_recipe: dict[str, Any]) -> TransformRecipe:
-    return TransformRecipe(
-        field_map=dict(rule_recipe.get("field_map", {})),
-        static_defaults=dict(rule_recipe.get("static_defaults", {})),
-        drop_fields=tuple(rule_recipe.get("drop_fields", ())),
-    )
+    return TransformRecipe.from_dict(rule_recipe)
 
 
 def _route_once(tools_by_name: dict[str, "BaseTool"],

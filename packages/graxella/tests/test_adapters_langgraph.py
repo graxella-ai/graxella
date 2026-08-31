@@ -5,10 +5,10 @@ compiled-graph internals (``nodes["tools"].bound.tools_by_name``). These
 tests pin that contract: if a langgraph release changes the shape, this
 file goes red before production routing quality quietly degrades.
 
-Already caught (2026-08, langgraph 1.x): ``create_react_agent`` is
-deprecated since LangGraph 1.0 — moved to ``langchain.agents.create_agent``,
-removed in 2.0. The shape contract still holds on 1.x; when the adapter
-gains create_agent support, these tests grow a second fixture for it.
+Migrated (2026-08, langchain 1.x): ``create_react_agent`` was deprecated
+since LangGraph 1.0 and removed in 2.0 — these tests now bind agents via
+``langchain.agents.create_agent``. The duck-typed shape contract
+(``.nodes`` + ``.invoke`` + ``.name``) holds identically for both.
 """
 from __future__ import annotations
 
@@ -25,11 +25,11 @@ from graxella.society.adapter import (
 )
 
 langgraph = pytest.importorskip("langgraph")
+from langchain.agents import create_agent  # noqa: E402
 from langchain_core.language_models.chat_models import BaseChatModel  # noqa: E402
 from langchain_core.messages import AIMessage  # noqa: E402
 from langchain_core.outputs import ChatGeneration, ChatResult  # noqa: E402
 from langchain_core.tools import tool  # noqa: E402
-from langgraph.prebuilt import create_react_agent  # noqa: E402
 
 
 class FakeToolChat(BaseChatModel):
@@ -60,7 +60,7 @@ def check_order(order_id: str) -> str:
 
 @pytest.fixture()
 def react_agent():
-    return create_react_agent(FakeToolChat(), [check_order], name="triage")
+    return create_agent(FakeToolChat(), [check_order], name="triage")
 
 
 # -- shape contract ----------------------------------------------------------
@@ -134,7 +134,7 @@ def test_graxella_agent_tools_only_and_echo_paths(tmp_path):
 def test_react_agent_routes_and_records_through_mesh(tmp_path):
     memory = Memory.sqlite(str(tmp_path / "m.db"), agent_id="t",
                            namespace="refunds", embedder=TfidfEmbedder())
-    agent = create_react_agent(FakeToolChat(), [check_order], name="triage")
+    agent = create_agent(FakeToolChat(), [check_order], name="triage")
     app = graxella.mesh([agent], memory=memory,
                         store_path=str(tmp_path / "r.jsonl"),
                         domain="refunds", model_id="fake-tool-chat")

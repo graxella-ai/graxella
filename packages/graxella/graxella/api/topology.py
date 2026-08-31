@@ -19,7 +19,7 @@ from typing import Any
 def topology_data(app: Any) -> dict:
     """Nodes + edges from the ledger and the mesh — every number cited
     or derivable from assertions."""
-    from axon_fabric.trust import tool_trust
+    from graxella.healing.trust import tool_trust
 
     domain = app.domain or app.memory.namespace
     routes: dict[str, int] = {}

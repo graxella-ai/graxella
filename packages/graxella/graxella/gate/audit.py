@@ -61,6 +61,11 @@ class ReplayReport(BaseModel):
     losses: int
     results: tuple[CaseResult, ...]
     assertion_id: Optional[str] = None   # set when recorded in the ledger
+    #: True when the cases' ``expected`` values were produced by the very
+    #: artifact under audit (the healer's heal-time self-check) — the wins
+    #: are then tautological. Self-certified reports stay visible to
+    #: reviewers as citations but are NEVER fused into the gate posterior.
+    self_certified: bool = False
 
     @property
     def total(self) -> int:
@@ -79,21 +84,23 @@ def apply_transform(proposal: Proposal, inputs: dict[str, Any]) -> dict[str, Any
     kind=tool_binding payloads (recipe nested under "recipe")."""
     src = proposal.payload
     recipe_dict = src.get("recipe") if isinstance(src.get("recipe"), dict) else src
-    recipe = TransformRecipe(
-        field_map=dict(recipe_dict.get("field_map") or {}),
-        static_defaults=dict(recipe_dict.get("static_defaults") or {}),
-        drop_fields=tuple(recipe_dict.get("drop_fields") or ()),
-    )
+    recipe = TransformRecipe.from_dict(recipe_dict)
     return recipe.apply(inputs)
 
 
 def audit(proposal: Proposal, cases: list[ReplayCase], *,
           apply_fn: ApplyFn = apply_transform,
-          memory: Memory | None = None) -> ReplayReport:
+          memory: Memory | None = None,
+          self_certified: bool = False) -> ReplayReport:
     """Replay ``proposal`` against ``cases`` and diff. A case is a WIN
     when the candidate reproduces the historically-successful output
     exactly. Exceptions are losses, never crashes — a broken candidate
-    is evidence too."""
+    is evidence too.
+
+    Pass ``self_certified=True`` when the cases' ``expected`` values came
+    from the candidate itself (e.g. the healer auditing the recipe it just
+    produced): the report is still recorded and citable, but its wins are
+    tautological and are excluded from posterior fusion."""
     results: list[CaseResult] = []
     for case in cases:
         try:
@@ -107,7 +114,8 @@ def audit(proposal: Proposal, cases: list[ReplayCase], *,
                                       note=f"{type(exc).__name__}: {exc}"))
     wins = sum(1 for r in results if r.win)
     report = ReplayReport(proposal_id=proposal.id, wins=wins,
-                          losses=len(results) - wins, results=tuple(results))
+                          losses=len(results) - wins, results=tuple(results),
+                          self_certified=self_certified)
 
     if memory is not None:
         source_ids = tuple(sid for c in cases for sid in c.source_ids)
@@ -129,21 +137,29 @@ def with_replay_evidence(proposal: Proposal, report: ReplayReport) -> Proposal:
     Requires the report to have been recorded (assertion_id set)."""
     if report.assertion_id is None:
         raise ValueError("record the report first: audit(..., memory=...)")
+    note = (f"recipe self-check {report.wins}/{report.total} "
+            "(self-certified; not fused into the posterior)"
+            if report.self_certified
+            else f"replay {report.wins}/{report.total} wins")
     data = proposal.model_dump()
     data["evidence"] = tuple(proposal.evidence) + (EvidenceCitation(
         assertion_id=report.assertion_id,
         role=EvidenceRole.PAIRED_REPLAY,
-        note=f"replay {report.wins}/{report.total} wins",
+        note=note,
     ),)
     return Proposal.model_validate(data)
 
 
 def replay_counts_for(memory: Memory, proposal_id: str) -> tuple[int, int]:
-    """(wins, losses) across all recorded replay reports for a proposal.
-    Used by the Evidence Gate's posterior fusion."""
+    """(wins, losses) across all recorded INDEPENDENT replay reports for a
+    proposal — used by the Evidence Gate's posterior fusion. Self-certified
+    reports (the artifact validated against its own output) are citations
+    for reviewers, never posterior evidence."""
     wins = losses = 0
     for row in memory.beliefs(subject=proposal_id, predicate="paired_replay"):
         data = json.loads(row["statement"])
+        if data.get("self_certified"):
+            continue
         wins += int(data.get("wins") or 0)
         losses += int(data.get("losses") or 0)
     return wins, losses

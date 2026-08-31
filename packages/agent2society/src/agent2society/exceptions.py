@@ -13,12 +13,31 @@ class AgentCardError(SocietyError):
 
 
 class NoRouteError(SocietyError):
-    """Raised when no agent in the graph can serve a task."""
+    """Raised when no agent in the graph can serve a task.
+
+    The message is self-explaining: it names the closest candidates with
+    their scores and says what to do about it, so the first unroutable
+    task a developer hits is a diagnosis, not a dead end."""
 
     def __init__(self, task: str, candidates: Optional[List[Any]] = None):
-        super().__init__(f"No agent in the mesh can serve task: {task!r}")
         self.task = task
         self.candidates = candidates or []
+        lines = [f"No agent in the mesh can serve task: {task!r}"]
+        shown = [c for c in self.candidates if isinstance(c, dict)][:3]
+        if shown:
+            lines.append("Closest candidates (all below the routing floor):")
+            for c in shown:
+                lines.append(
+                    f"  - {c.get('agent')} (skill={c.get('skill_id')}, "
+                    f"score={c.get('score')})")
+        lines.append(
+            "Why this happens: with the lexical fallback router the task "
+            "must share words with an agent's skill tags. Fixes: run a "
+            "local embedding model so semantic routing engages (Ollama + "
+            "nomic-embed-text, or pip install sentence-transformers), pass "
+            "router='transformer' explicitly, or enrich the agents' skill "
+            "descriptions with the words users actually say.")
+        super().__init__("\n".join(lines))
 
 
 class ConformanceViolation(SocietyError):

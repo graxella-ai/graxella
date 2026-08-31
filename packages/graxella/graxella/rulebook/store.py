@@ -19,7 +19,18 @@ from graxella.gate import spec as _spec
 
 @dataclass
 class ApprovedRule:
-    """One promoted proposal. Immutable once written."""
+    """One promoted proposal.
+
+    A promotion's fact — WHO approved it, on WHAT evidence, WHEN — is
+    permanent and never rewritten; that audit record is what "immutable"
+    means here. Whether the rule is still SERVING traffic is a separate,
+    revisable fact: ``status`` moves active -> rolled_back when live
+    evidence turns against it (``Rulebook.demote``), mirroring the
+    Promotion Spec's ACTIVE -> ROLLED_BACK transition. Demoted rules stay
+    in the file, visibly, as the record of a rule that stopped earning
+    its keep — evidence-gated learning that can also un-learn, not a
+    static rule an operator hand-wrote once and forgot.
+    """
     id: str
     proposal_id: str
     kind: str                       # "rule" | "route_weight" | "trust_tier"
@@ -35,6 +46,11 @@ class ApprovedRule:
     # shipped through, and the citations its approval rests on.
     spec_status: str = ""
     citations: list[str] = field(default_factory=list)
+    # "active" | "rolled_back" — see class docstring.
+    status: str = "active"
+    demoted_at: float | None = None
+    demoted_by: str = ""
+    demoted_reason: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -68,6 +84,8 @@ class Rulebook:
         """
         self.reload()
         for rule in reversed(self._rules):
+            if rule.status != "active":
+                continue
             if rule.kind not in ("rule", "tool_binding", "transform") \
                     or rule.replace_skill != tool_name:
                 continue
@@ -83,6 +101,10 @@ class Rulebook:
     def all_rules(self) -> list[ApprovedRule]:
         self.reload()
         return list(self._rules)
+
+    def active_rules(self) -> list[ApprovedRule]:
+        self.reload()
+        return [r for r in self._rules if r.status == "active"]
 
     # ---------------------------------------------------------- mutations
     def promote(self, proposal: Any, *,
@@ -182,6 +204,31 @@ class Rulebook:
         self._rejected.add(proposal_id)
         self._save()
 
+    def demote(self, rule_id: str, *, by: str, reason: str) -> ApprovedRule:
+        """Un-learn a rule: active -> rolled_back (the Promotion Spec's
+        ACTIVE -> ROLLED_BACK transition, applied to the rulebook).
+
+        Idempotent: demoting an already-demoted rule is a no-op that
+        returns it unchanged. The rule is never deleted — its promotion
+        record stands; only its ``status`` (does it still serve traffic)
+        and the demotion's own cited reason are added. ``find_substitution``
+        stops returning it immediately.
+        """
+        self.reload()
+        for i, rule in enumerate(self._rules):
+            if rule.id != rule_id:
+                continue
+            if rule.status != "active":
+                return rule
+            rule.status = "rolled_back"
+            rule.demoted_at = time.time()
+            rule.demoted_by = by
+            rule.demoted_reason = reason
+            self._rules[i] = rule
+            self._save()
+            return rule
+        raise KeyError(f"no rule {rule_id!r} in the rulebook")
+
     # ------------------------------------------------------------ storage
     def reload(self) -> None:
         if not self.path.exists():
@@ -221,8 +268,12 @@ def _recipe_from_change(change: dict[str, Any]) -> dict[str, Any]:
     """
     if "recipe" in change and isinstance(change["recipe"], dict):
         return dict(change["recipe"])
-    if any(k in change for k in ("field_map", "static_defaults", "drop_fields")):
+    if any(k in change for k in ("field_map", "static_defaults", "drop_fields",
+                                 "type_casts", "value_map")):
         return {"field_map": dict(change.get("field_map") or {}),
                 "static_defaults": dict(change.get("static_defaults") or {}),
-                "drop_fields": list(change.get("drop_fields") or ())}
+                "drop_fields": list(change.get("drop_fields") or ()),
+                "type_casts": dict(change.get("type_casts") or {}),
+                "value_map": {k: dict(v) for k, v
+                             in (change.get("value_map") or {}).items()}}
     return {}

@@ -23,6 +23,7 @@ from graxella.gate.evidence import (  # the Evidence Gate (Phase 1)
     threshold_for,
 )
 from graxella.gate.evidence import GateDecision as EvidenceDecision
+from graxella.gate.health import RuleHealth, rule_health, should_demote
 from graxella.gate.promoter import (  # interim — deprecated, removed Phase 1
     GateDecision,
     GatePolicy,
@@ -36,6 +37,7 @@ __all__ = [
     "spec",
     "EvidenceGate", "EvidencePrior", "GateVerdict", "EvidenceDecision",
     "threshold_for",
+    "RuleHealth", "rule_health", "should_demote",
     "PromotionGate", "Proposal", "ProposalStatus",
     "GateDecision", "GatePolicy", "ObjectiveScores",
 ]

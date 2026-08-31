@@ -1,16 +1,16 @@
-"""axon-fabric — graxella's tool-boundary fabric (shell package).
+"""axon-fabric — backward-compatibility shell for the tool boundary.
 
-Phase 2 (build plan tasks 2-4, 2-5, 2-6) ports the B10 work here:
+The Phase 2 tool-boundary work (drift interception, the heal ladder,
+cited tool trust) was folded into the graxella package itself so that
+users import ONE package:
 
-  * host middleware   — MCP drift interception around tool clients
-  * healer pipeline   — LLM-once -> compiler -> verifier -> deterministic
-                        transform, shipped as Proposal(kind=transform)
-                        through the Evidence Gate
-  * sentinel          — canary calls, schema differ, drift forecasting
-  * registry          — federated schema registry feeding tool trust scores
+    from graxella.healing import ToolInterceptor, tool_trust
 
-Until then this package is intentionally empty: it reserves the name and
-the workspace seat so nothing else squats on the tool boundary.
+``axon_fabric.interceptor`` and ``axon_fabric.trust`` remain as thin
+re-export shims for anything already written against the old paths.
+This package otherwise reserves the workspace seat for future
+tool-boundary work that does not belong in the user-facing surface
+(sentinel canary calls, schema differ, federated schema registry).
 """
 
 __version__ = "0.0.0"

@@ -25,8 +25,9 @@ from mnema.integrations.sdk import MnemaClient
 
 _log = logging.getLogger("graxella")
 
-from graxella.beliefs.records import (OBSERVED_CONFIDENCE, OutcomeRecord,
-                                      RecalledCase, is_outcome_statement)
+from graxella.beliefs.records import (OBSERVED_CONFIDENCE, RECALL_MAX_CHARS,
+                                      OutcomeRecord, RecalledCase,
+                                      is_outcome_statement, render_recall_tiered)
 
 # Matches the canonical decision-statement rendering produced by
 # record_decision: "[delegate] task='...' chose='...' :: rationale".
@@ -234,6 +235,64 @@ class Memory:
             out.append({"assertion_id": row["id"], **detail})
         return out
 
+    # -- forward provenance: touched edges -----------------------------------
+    # derived_from answers "what evidence led to this?" (backward). A touched
+    # edge answers "what did this decision affect?" (forward) -- so provenance
+    # is a graph you can walk both ways, and impact/retraction is precise.
+
+    def record_touch(self, decision_id: str, target: str, *,
+                     role: str = "entity", detail: dict | None = None) -> str:
+        """Record that ``decision_id`` TOUCHED (created / affected) ``target``.
+
+        ``role`` classes the edge (``entity`` for a business object like
+        ``order:1234``, ``proposal``/``rule`` for a governance artifact,
+        ``tool`` for a capability). The edge is ``derived_from`` the decision,
+        so retracting the decision cascades to it. Returns the assertion id.
+        """
+        import json as _json
+        stmt = _json.dumps({"role": role, "target": target,
+                            "decision_id": decision_id, **(detail or {})},
+                           sort_keys=True, default=str)
+        aid = self._observe(stmt, subject=decision_id, predicate="touched",
+                            object=str(target), confidence=OBSERVED_CONFIDENCE,
+                            source_id="orchestrator",
+                            derived_from=(decision_id,))
+        self._emit("touched", {"assertion_id": aid, "decision_id": decision_id,
+                               "target": str(target), "role": role})
+        return aid
+
+    def touched_by(self, decision_id: str) -> list[dict]:
+        """Forward provenance: everything ``decision_id`` affected."""
+        import json as _json
+        return [{"assertion_id": r["id"], **_json.loads(r["statement"])}
+                for r in self.beliefs(subject=decision_id, predicate="touched")]
+
+    def touching(self, target: str) -> list[dict]:
+        """Reverse provenance: every decision that touched ``target`` -- the
+        audit query "show me everything that happened to this entity",
+        across every agent, from one ledger."""
+        import json as _json
+        out: list[dict] = []
+        for r in self.beliefs(predicate="touched"):
+            if r["object"] != str(target):
+                continue
+            out.append({"assertion_id": r["id"], "decision_id": r["subject"],
+                        **_json.loads(r["statement"])})
+        return out
+
+    def provenance(self, assertion_id: str) -> dict:
+        """One assertion's full provenance, both directions: the backward
+        evidence it was ``derived_from`` and the forward artifacts it
+        ``touched``. Turns ``why()`` from a lookup into a walkable graph."""
+        why = self.why(assertion_id)
+        prov = (why.get("provenance") or {}) if isinstance(why, dict) else {}
+        return {
+            "assertion_id": assertion_id,
+            "assertion": why.get("assertion") if isinstance(why, dict) else None,
+            "derived_from": list(prov.get("derived_from") or []),
+            "touched": self.touched_by(assertion_id),
+        }
+
     # -- case recall (task 0B-1) ---------------------------------------------
 
     def similar_cases(self, task: str, *, top_k: int = 3,
@@ -271,6 +330,23 @@ class Memory:
             if len(cases) >= top_k:
                 break
         return cases
+
+    def recall(self, task: str, *, top_k: int = 6, detail_k: int = 1,
+               domain: str | None = None, min_similarity: float = 0.05,
+               max_chars: int = RECALL_MAX_CHARS) -> str:
+        """Tiered recall block, ready to inject as dispatch context.
+
+        Fetches a BROAD candidate set (``top_k``) of verified similar cases,
+        then renders it progressively: the ``detail_k`` most relevant in full
+        (L2), the rest as one-line headlines (L0), all within ``max_chars``.
+        Breadth without the token cost of dumping every case in full -- the
+        agent sees that N similar tasks exist and reads only the ones that
+        matter. Returns "" when there is no verified prior experience.
+        """
+        cases = self.similar_cases(task, top_k=top_k, domain=domain,
+                                   min_similarity=min_similarity)
+        return render_recall_tiered(cases, max_chars=max_chars,
+                                    detail_k=detail_k)
 
     # -- typed read-side (task 0A-1 / 0A-3) ----------------------------------
 
@@ -374,3 +450,24 @@ def _parse_decision_task(statement: str) -> str | None:
         return str(ast.literal_eval(m.group(1)))
     except (ValueError, SyntaxError):
         return None
+
+
+def best_embedder() -> Any:
+    """The richest locally-available embedder for semantic recall.
+
+    Prefers dense semantic vectors (a local embedding model such as
+    nomic-embed-text via Ollama) and falls back to a lexical embedder only
+    when no model is reachable. This is what ``Memory`` uses by default when
+    no ``embedder=`` is passed; exposed here so callers can name or inspect
+    the active embedder WITHOUT importing mnema internals -- graxella's
+    surface stays the only import a graxella user needs.
+
+    Name it with ``getattr(best_embedder(), 'model_id', ...)``.
+    """
+    from mnema.integrations.sdk import _best_embedder
+    return _best_embedder()
+
+
+def embedder_id(embedder: Any) -> str:
+    """A human-readable name for an embedder (its model id, else its type)."""
+    return getattr(embedder, "model_id", type(embedder).__name__)

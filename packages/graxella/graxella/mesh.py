@@ -3,13 +3,13 @@ agents in a graxella-governed mesh WITHOUT introducing a new agent class.
 
 Users write plain framework code:
 
-    from langgraph.prebuilt import create_react_agent
+    from langchain.agents import create_agent
     from langchain_ollama import ChatOllama
     import graxella
 
     llm = ChatOllama(model="qwen2.5:3b", temperature=0)
-    triage    = create_react_agent(llm, [check_order, lookup_policy], name="triage")
-    responder = create_react_agent(llm, [draft_email],                 name="responder")
+    triage    = create_agent(llm, [check_order, lookup_policy], name="triage")
+    responder = create_agent(llm, [draft_email],                 name="responder")
 
     app = graxella.mesh(
         [triage, responder],
@@ -40,6 +40,7 @@ Both:
 from __future__ import annotations
 
 import logging
+import os
 import tempfile
 from pathlib import Path
 from typing import Any, Iterable
@@ -125,9 +126,12 @@ def _build_peer_context(descs: list[dict], self_name: str | None = None) -> str:
         tools_str = ", ".join(d["tool_names"]) or "(no tools)"
         lines.append(f"  - {d['name']}: {tools_str}")
     lines.append("")
-    lines.append("If a request would be handled better by a peer, end your response "
-                 "with exactly one line: HANDOFF: <peer_name> :: <task for them>. "
-                 "The runtime will route it, audited. Otherwise, do your job.")
+    lines.append("If a request would be handled better by one of the peers "
+                 "listed above, end your response with exactly one line: "
+                 "HANDOFF: <peer_name> :: <task for them>. "
+                 "The runtime will route it, audited. Never hand off to "
+                 "yourself: if the task is yours, use your tools and answer "
+                 "it directly.")
     return "\n".join(lines)
 
 
@@ -138,7 +142,7 @@ def _build_card(society: Society, agent: Any, descs: list[dict]) -> _CallableCar
 
     Detection order:
       1. graxella.Agent   -- has ``_make_runner(peer_context=...)``.
-      2. Native LangGraph -- CompiledStateGraph from create_react_agent.
+      2. Native LangGraph -- CompiledStateGraph from create_agent.
       3. CrewAI-shaped    -- ``.role`` + ``.tools`` object (peer context
          is not injectable through crewai's own prompt, so we skip it).
       4. Bare callable    -- registered by ``__name__``.
@@ -210,9 +214,58 @@ def _resolve_memory(memory: Any, agent_id: str) -> Memory:
     return memory
 
 
-# ---------------- router: TF-IDF (default) or small transformer -------
+# ---------------- router: embedding-first ("auto") or explicit --------
 
 _DEFAULT_TRANSFORMER = "sentence-transformers/all-MiniLM-L6-v2"
+
+#: Process-level cache for the auto-resolved embed_fn ("unset" = not yet
+#: probed). One probe per process — mesh construction stays cheap.
+_AUTO_EMBED_CACHE: list = ["unset"]
+
+
+def _auto_embed_fn() -> Any:
+    """The richest available routing embedder, probed once per process.
+
+    Ladder (mirrors mnema's recall embedder — one policy across the
+    package): local Ollama dense embeddings -> sentence-transformers ->
+    None (agent2society's lexical token overlap), with a LOUD warning on
+    the lexical fallback because paraphrases will not route there.
+    ``GRAXELLA_ROUTER`` overrides (e.g. ``tfidf`` pins the lexical path —
+    used by the offline test suite for determinism).
+    """
+    override = os.environ.get("GRAXELLA_ROUTER")
+    if override:
+        return None if override == "tfidf" else _resolve_router(override)
+    if _AUTO_EMBED_CACHE[0] != "unset":
+        return _AUTO_EMBED_CACHE[0]
+    fn = None
+    # The router's embed_fn contract is BATCH: list[str] -> list[vec].
+    try:
+        from mnema.adapters.embedder.ollama import OllamaEmbedder
+        cand = OllamaEmbedder()
+        if cand.health_check():
+            _log.info("graxella: routing embedder = %s (dense semantic, "
+                      "local Ollama)", cand.model_id)
+            fn = cand.embed          # already list[str] -> list[vec]
+    except Exception:
+        pass
+    if fn is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            model = SentenceTransformer(_DEFAULT_TRANSFORMER)
+            _log.info("graxella: routing embedder = %s", _DEFAULT_TRANSFORMER)
+            fn = lambda texts, _m=model: _m.encode(  # noqa: E731
+                texts, convert_to_numpy=True).tolist()
+        except ImportError:
+            pass
+    if fn is None:
+        _log.warning(
+            "graxella: no embedding model available — routing degrades to "
+            "lexical keyword overlap. Paraphrased tasks may not route. "
+            "Fix: start Ollama (`ollama pull nomic-embed-text`) or "
+            "`pip install sentence-transformers`.")
+    _AUTO_EMBED_CACHE[0] = fn
+    return fn
 
 
 def _resolve_router(router: Any) -> Any:
@@ -220,7 +273,13 @@ def _resolve_router(router: Any) -> Any:
     compatible with agent2society's Mesh.
 
     Accepted values:
-      * ``None`` or ``"tfidf"`` -- default TF-IDF path (embed_fn=None).
+      * ``None`` or ``"auto"``  -- DEFAULT: embedding-first. Local Ollama
+                                   dense vectors when reachable, else
+                                   sentence-transformers, else the lexical
+                                   token-overlap path with a loud warning.
+      * ``"tfidf"``             -- explicit lexical path (embed_fn=None).
+                                   Deterministic, zero deps, exact-word
+                                   matching only.
       * ``"transformer"``       -- lazy-load the default MiniLM model
                                    (~90 MB, first call downloads it).
       * any string containing ``"/"`` or ``"-"`` -- treated as a
@@ -229,9 +288,12 @@ def _resolve_router(router: Any) -> Any:
 
     Silent failures aren't allowed: if the caller asked for a
     transformer and the package isn't installed, raise a helpful
-    ImportError telling them exactly what to install.
+    ImportError telling them exactly what to install; if auto lands on
+    the lexical fallback, that degradation is logged loudly.
     """
-    if router is None or router == "tfidf":
+    if router is None or router == "auto":
+        return _auto_embed_fn()
+    if router == "tfidf":
         return None
     if callable(router):
         return router
@@ -394,7 +456,13 @@ def mesh(agents: Iterable[Any], *,
 
     ``router`` picks the scoring strategy (all still LLM-free at
     dispatch time):
-      * ``None`` / ``"tfidf"`` (default) -- word-bag TF-IDF matching.
+      * ``None`` / ``"auto"`` (default) -- embedding-first: local Ollama
+        dense vectors when reachable, else sentence-transformers, else
+        the lexical token-overlap path with a LOUD degradation warning.
+        Paraphrases route on the embedding paths; the lexical fallback
+        needs shared words.
+      * ``"tfidf"`` -- pin the lexical path explicitly (deterministic,
+        zero deps, exact-word matching).
       * ``"transformer"`` -- small MiniLM (~90 MB, needs
         ``sentence-transformers``). Better generalisation for
         paraphrased / cross-lingual tasks; picks at import time so

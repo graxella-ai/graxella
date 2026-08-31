@@ -6,6 +6,6 @@ orchestration decision made by an instrumented graph becomes an
 ``Assertion`` in the belief store, cited by the unified tracer, and
 available to the promotion gate.
 """
-from graxella.beliefs.adapter import Memory
+from graxella.beliefs.adapter import Memory, best_embedder, embedder_id
 
-__all__ = ["Memory"]
+__all__ = ["Memory", "best_embedder", "embedder_id"]

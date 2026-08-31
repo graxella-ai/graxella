@@ -29,8 +29,9 @@ from graxella.agenda import (CapabilityReweigher, DocsMiner, HiddenAgendaRunner,
 from graxella.audit import export as audit_export
 from graxella.exceptions import (GraxellaError, ProposalNotFoundError,
                                  RulebookError, UnsafeRuleError)
-from graxella.healing import (GraxellaApp, HealedTool, TransformRecipe,
-                              heal_wrap, wrap, wrap_tools)
+from graxella.healing import (GraxellaApp, HealedTool, ToolInterceptor,
+                              TransformRecipe, heal_wrap, tool_trust, wrap,
+                              wrap_tools)
 from graxella.knowledge import Assertion, KnowledgeSeed, from_docs
 from graxella.memory import (ExperienceEpisode, ExperienceStore,
                              InMemoryExperienceStore, SqliteExperienceStore,
@@ -47,10 +48,14 @@ from graxella.gate import (EvidenceGate, EvidencePrior, GateVerdict,
                             ProposalStatus, spec as promotion_spec)
 from graxella.gate.spec import Proposal as PromotionProposal
 from graxella.agent import Agent
+from graxella.api.topology import render_html, topology_data
+from graxella.gate.evidence import pending_from_ledger
 from graxella.instrument import InstrumentedApp, instrument
 from graxella.mesh import mesh, supervisor
+from graxella.session import ReconcileResult, Session
 from graxella.society import Society
 from graxella.tracer import TraceEvent, UnifiedTracer
+from graxella.trajectory import Hop, TrajectoryBudget, TrajectoryResult
 
 __all__ = [
     "__version__",
@@ -77,7 +82,9 @@ __all__ = [
     # healing
     "TransformRecipe",
     "HealedTool",
+    "ToolInterceptor",
     "heal_wrap",
+    "tool_trust",
     "wrap",
     "wrap_tools",
     "GraxellaApp",
@@ -90,6 +97,8 @@ __all__ = [
     "UnsafeRuleError",
     # Beat 1 orchestration surface
     "Agent",
+    "Session",
+    "ReconcileResult",
     "mesh",
     "supervisor",
     "instrument",
@@ -111,4 +120,12 @@ __all__ = [
     "ObjectiveScores",
     "Constitution",
     "Violation",
+    "pending_from_ledger",
+    # trajectories
+    "TrajectoryBudget",
+    "TrajectoryResult",
+    "Hop",
+    # topology map
+    "topology_data",
+    "render_html",
 ]

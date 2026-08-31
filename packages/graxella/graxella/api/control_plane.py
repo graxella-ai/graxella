@@ -73,7 +73,7 @@ def create_app(memory: Memory, *, gate: EvidenceGate | None = None) -> Any:
 
     @app.get("/trust")
     def trust(domain: str | None = None) -> dict:
-        from axon_fabric.trust import tool_trust
+        from graxella.healing.trust import tool_trust
         return {name: t.model_dump()
                 for name, t in tool_trust(memory, domain=domain).items()}
 

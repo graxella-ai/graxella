@@ -208,6 +208,28 @@ def cmd_gate_reject(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_show(args: argparse.Namespace) -> int:
+    """`graxella show` -- the governance ledger UI (review surface)."""
+    from graxella.api.show import show
+    show(workdir=args.workdir, name=args.name, host=args.host,
+         port=args.port, open_browser=not args.no_browser)
+    return 0
+
+
+def cmd_serve(args: argparse.Namespace) -> int:
+    """Launch the local governance UI (topology + approval inbox)."""
+    try:
+        from graxella.api.ui import serve
+    except ImportError as exc:
+        print(f"error: the UI server needs graxella[api] "
+              f"(fastapi + uvicorn): {exc}", file=sys.stderr)
+        return 2
+    serve(args.db, host=args.host, port=args.port, agent=args.agent,
+          namespace=args.namespace, open_browser=not args.no_browser,
+          demo=args.demo, notebook_launcher=args.notebook)
+    return 0
+
+
 def cmd_audit(args: argparse.Namespace) -> int:
     store = _open_store(args.store)
     rulebook = _open_rulebook(args.rulebook)
@@ -283,6 +305,38 @@ def _build_parser() -> argparse.ArgumentParser:
         if "--note" in extra:
             g.add_argument("--note", default="")
         g.set_defaults(func=fn)
+
+    sh = sub.add_parser(
+        "show",
+        help="open the governance ledger UI: verdicts, review queue with "
+             "approve/reject, heals, decisions, entity audit")
+    sh.add_argument("--workdir", default=".graxella",
+                    help="a session workdir, or the .graxella root holding "
+                         "them (newest session is picked)")
+    sh.add_argument("--name", default=None,
+                    help="session name override (default: the dir name)")
+    sh.add_argument("--host", default="127.0.0.1")
+    sh.add_argument("--port", type=int, default=8321)
+    sh.add_argument("--no-browser", action="store_true")
+    sh.set_defaults(func=cmd_show)
+
+    sv = sub.add_parser("serve",
+                        help="launch the governance UI (topology + approval inbox)")
+    sv.add_argument("--db", default=".graxella/mnema.db",
+                    help="mnema sqlite ledger path (default: .graxella/mnema.db)")
+    sv.add_argument("--host", default="127.0.0.1")
+    sv.add_argument("--port", type=int, default=8756)
+    sv.add_argument("--agent", default="graxella-mesh")
+    sv.add_argument("--namespace", default="default")
+    sv.add_argument("--no-browser", action="store_true",
+                    help="do not auto-open the browser")
+    sv.add_argument("--demo", action="store_true",
+                    help="serve a seeded demo pipeline (no ledger needed)")
+    sv.add_argument("--notebook", choices=["auto", "code", "jupyter"],
+                    default="auto",
+                    help="how to open a node's notebook on click "
+                         "(auto prefers VS Code, then Jupyter)")
+    sv.set_defaults(func=cmd_serve)
 
     tk = sub.add_parser("tokens",
                         help="token/cost accounting from the outcome ledger")

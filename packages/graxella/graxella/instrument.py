@@ -259,10 +259,16 @@ class InstrumentedApp:
     def why(self, assertion_id: str) -> dict:
         return self.tracer.why(assertion_id, memory=self.memory)
 
-    def run_trajectory(self, task: str, *, budget=None):
+    def run_trajectory(self, task: str, *, budget=None, **budget_kw):
         """Bounded multi-hop dispatch (Phase 2 task 2-1) — see
-        graxella.trajectory for the loop and its containments."""
-        from graxella.trajectory import run_trajectory
+        graxella.trajectory for the loop and its containments.
+
+        Budget fields may be passed directly (``max_hops=3``,
+        ``max_tokens=...``, ``max_wallclock_s=...``) instead of building
+        a TrajectoryBudget; an explicit ``budget=`` wins."""
+        from graxella.trajectory import TrajectoryBudget, run_trajectory
+        if budget is None and budget_kw:
+            budget = TrajectoryBudget(**budget_kw)
         return run_trajectory(self, task, budget=budget)
 
     # -- internal -----------------------------------------------------------

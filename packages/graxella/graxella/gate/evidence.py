@@ -66,6 +66,13 @@ def threshold_for(n_successes: int) -> float:
     return THR_FLOOR + THR_SPAN * math.exp(-n_successes / THR_HALF)
 
 
+def _chosen_tokens(chosen: str | None) -> tuple[str, ...]:
+    """Split a ledger ``chosen`` value into its exact name segments.
+    Composites: "agent::skill" (delegates), "old->new" (tool bindings)."""
+    import re as _re
+    return tuple(t for t in _re.split(r"::|->", chosen or "") if t)
+
+
 class GateDecision(str, Enum):
     AUTO_APPROVE = "auto_approve"
     NEEDS_HUMAN = "needs_human"
@@ -252,7 +259,15 @@ class EvidenceGate:
         for aid, rec in rows:
             if target.model_id is not None and rec.model_id != target.model_id:
                 continue
-            if scope_token and not (rec.chosen and scope_token in rec.chosen):
+            # Exact-token scope match. ``chosen`` may be a composite —
+            # "agent::skill" (delegates) or "old->new" (tool bindings) —
+            # so split on both delimiters and require EQUALITY with one
+            # segment. Substring containment leaked evidence across tuples
+            # on a shared name prefix (e.g. tool "search" inheriting
+            # "search_flights_v2"'s successes), which breaks the gate's
+            # core promise that a verdict cites exactly the evidence for
+            # THIS tuple.
+            if scope_token and scope_token not in _chosen_tokens(rec.chosen):
                 continue
             if rec.ok:
                 successes += 1

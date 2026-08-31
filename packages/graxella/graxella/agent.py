@@ -3,7 +3,7 @@
 Optional convenience. Developers pick their path:
 
   * Path A -- native framework agent:
-        triage = create_react_agent(llm, tools, name="triage")
+        triage = create_agent(llm, tools, name="triage")
         app = graxella.mesh([triage, ...], memory=...)
 
   * Path B -- graxella.Agent (this file):
@@ -23,8 +23,8 @@ names onto graxella's primitives:
   * ``role``      -> routing name (slugified)
   * ``goal``      -> primary skill tag (used for TF-IDF routing)
   * ``backstory`` -> injected as system context on every LLM call
-  * ``tools``     -> the callables the LLM may invoke (bound via LangGraph
-                     ``create_react_agent`` when ``llm`` is provided)
+  * ``tools``     -> the callables the LLM may invoke (bound via
+                     ``langchain.agents.create_agent`` when ``llm`` is provided)
   * ``llm``       -> optional. If absent, ``tools[0]`` is called directly
                      with the payload -- makes stub/mock agents trivial.
 
@@ -77,7 +77,7 @@ class Agent:
         """Return the callable Society will invoke when this agent is picked.
 
         Priority:
-          1. LLM + tools present -> LangGraph ``create_react_agent`` loop.
+          1. LLM + tools present -> ``langchain.agents.create_agent`` loop.
              The LLM picks which tool to call, executes it, may loop, and
              returns a final message.
           2. Tools only (no LLM) -> call the first tool with the payload.
@@ -89,14 +89,14 @@ class Agent:
         """
         if self.llm is not None and self.tools:
             try:
-                from langgraph.prebuilt import create_react_agent  # type: ignore
+                from langchain.agents import create_agent  # type: ignore
             except ImportError as exc:
                 raise ImportError(
-                    "Agent(llm=..., tools=[...]) requires langgraph. "
+                    "Agent(llm=..., tools=[...]) requires langchain>=1.0. "
                     "Install with: pip install -r requirements-llm.txt"
                 ) from exc
 
-            graph = create_react_agent(self.llm, self.tools)
+            graph = create_agent(self.llm, self.tools)
             backstory = self.backstory
 
             def runner(payload: Any) -> dict:
