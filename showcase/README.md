@@ -5,6 +5,10 @@ three run against **zero external services** (mock apps + plain-callable
 agents). Showcase 04 plugs in a real LangGraph + Ollama LLM to prove the
 same mechanics wrap a real workload.
 
+> The runnable example scripts (01, 02, 03, 04, 05, 06, 08) live in
+> [../notebooks/](../notebooks/). This README stays here as the guide;
+> `05_travel_bot.ipynb` stays in this folder as the one notebook-native demo.
+
 ## Prerequisites
 
 Create a venv at the graxella package root and install pinned deps:
@@ -21,8 +25,8 @@ python -m venv .venv
 Then invoke every showcase script through the venv interpreter:
 
 ```bash
-.venv/Scripts/python showcase/01_hello_wrap.py    # Windows
-.venv/bin/python     showcase/01_hello_wrap.py    # macOS/Linux
+.venv/Scripts/python notebooks/01_hello_wrap.py    # Windows
+.venv/bin/python     notebooks/01_hello_wrap.py    # macOS/Linux
 ```
 
 ### Extra prereqs for showcase 04 (real LLM)
@@ -39,15 +43,17 @@ ollama pull qwen2.5:3b
 ollama serve      # daemon must be listening on localhost:11434
 ```
 
-## The five demos
+## The demos
 
 | # | Script | What it proves | How to run |
 |---|--------|----------------|------------|
-| 01 | [01_hello_wrap.py](01_hello_wrap.py) | one call to `instrument()` attaches memory + society + tracer + gate + constitution to an unchanged app | `python showcase/01_hello_wrap.py` |
-| 02 | [02_full_runtime.py](02_full_runtime.py) | the full six-step story: wrap → route → dispatch → constitution violation → outcomes → gate scoring → cross-source `why()` | `python showcase/02_full_runtime.py` |
-| 03 | [03_dashboard.py](03_dashboard.py) | the operator dashboard: browser UI over the same runtime, with approve/reject/auto-evaluate buttons | `python showcase/03_dashboard.py` then open `http://127.0.0.1:8787/` |
-| 04 | [04_langgraph_real_llm.py](04_langgraph_real_llm.py) | same six-step story on a **real** Ollama qwen2.5:3b LLM — mix of native `create_react_agent(...)` and `graxella.Agent(...)` in one `graxella.mesh([...])`, deterministic routing | `python showcase/04_langgraph_real_llm.py` |
-| 05 | [05_travel_bot.py](05_travel_bot.py) | a realistic **travel booking bot** (flights + hotels) — 5-turn conversation, 4 tools, 2 agents (one native LangGraph, one `graxella.Agent`), and every graxella superpower (routing, memory, peer-awareness, constitution, gate, `why()`) comes for free | `python showcase/05_travel_bot.py` |
+| 01 | [01_hello_wrap.py](../notebooks/01_hello_wrap.py) | one call to `instrument()` attaches memory + society + tracer + gate + constitution to an unchanged app | `python notebooks/01_hello_wrap.py` |
+| 02 | [02_full_runtime.py](../notebooks/02_full_runtime.py) | the full six-step story: wrap → route → dispatch → constitution violation → outcomes → gate scoring → cross-source `why()` | `python notebooks/02_full_runtime.py` |
+| 03 | [03_dashboard.py](../notebooks/03_dashboard.py) | the operator dashboard: browser UI over the same runtime, with approve/reject/auto-evaluate buttons | `python notebooks/03_dashboard.py` then open `http://127.0.0.1:8787/` |
+| 04 | [04_langgraph_real_llm.py](../notebooks/04_langgraph_real_llm.py) | same six-step story on a **real** Ollama qwen2.5:3b LLM — mix of native `create_react_agent(...)` and `graxella.Agent(...)` in one `graxella.mesh([...])`, deterministic routing | `python notebooks/04_langgraph_real_llm.py` |
+| 05 | [05_travel_bot.py](../notebooks/05_travel_bot.py) / [05_travel_bot.ipynb](05_travel_bot.ipynb) | a realistic **travel booking bot** (flights + hotels) — 5-turn conversation, 4 tools, 2 agents (one native LangGraph, one `graxella.Agent`), and every graxella superpower (routing, memory, peer-awareness, constitution, gate, `why()`) comes for free | `python notebooks/05_travel_bot.py` |
+| 06 | [06_evidence_loop.py](../notebooks/06_evidence_loop.py) | closes the outcome loop through the evidence gate | `python notebooks/06_evidence_loop.py` |
+| 08 | [08_refund_desk.py](../notebooks/08_refund_desk.py) | a refund-desk agent scenario exercising routing + gate + constitution end to end | `python notebooks/08_refund_desk.py` |
 
 ## The narrative
 

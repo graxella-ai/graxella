@@ -18,11 +18,9 @@ import tempfile
 from pathlib import Path
 
 import graxella
-from axon_fabric.interceptor import ToolInterceptor
-from axon_fabric.trust import tool_trust
 from graxella.beliefs import Memory
 from graxella.gate.evidence import EvidenceGate, pending_from_ledger
-from graxella.healing import TransformRecipe
+from graxella.healing import ToolInterceptor, TransformRecipe, tool_trust
 from graxella.rulebook import Rulebook
 
 work = Path(tempfile.mkdtemp(prefix="graxella-demo-"))
