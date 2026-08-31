@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- graxella mark: a gate (hexagon) holding a cited verdict — two
+       evidence nodes joined by a checkmark edge. Reads clean at 16px. -->
+  <polygon points="60,14 100,37 100,83 60,106 20,83 20,37"
+           fill="none" stroke="#22A366" stroke-width="7"
+           stroke-linejoin="round"/>
+  <path d="M 38 63 L 54 79 L 90 42" fill="none" stroke="#22A366"
+        stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="38" cy="63" r="5.5" fill="#22A366"/>
+  <circle cx="54" cy="79" r="5.5" fill="#22A366"/>
+  <circle cx="90" cy="42" r="5.5" fill="#22A366"/>
+</svg>

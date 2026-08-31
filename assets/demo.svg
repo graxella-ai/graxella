@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 320" width="640" height="320"
+     font-family="ui-monospace,SFMono-Regular,Consolas,'Liberation Mono',monospace">
+  <style>
+    text { font-size: 15px; }
+    .cmd   { fill:#8b96a5; }
+    .line  { fill:#c9d1d9; }
+    .ok    { fill:#3fc07a; }
+    .accent{ fill:#e8b64e; font-weight:600; }
+    .dim   { fill:#6e7681; }
+    .l{ opacity:0; animation-duration:10s; animation-iteration-count:infinite;
+        animation-timing-function:ease-in; }
+    #l1{ animation-name:f1 } #l2{ animation-name:f2 } #l3{ animation-name:f3 }
+    #l4{ animation-name:f4 } #l5{ animation-name:f5 } #l6{ animation-name:f6 }
+    #l7{ animation-name:f7 }
+    @keyframes f1{0%,3%{opacity:0}5%,88%{opacity:1}94%,100%{opacity:0}}
+    @keyframes f2{0%,12%{opacity:0}14%,88%{opacity:1}94%,100%{opacity:0}}
+    @keyframes f3{0%,18%{opacity:0}20%,88%{opacity:1}94%,100%{opacity:0}}
+    @keyframes f4{0%,26%{opacity:0}28%,88%{opacity:1}94%,100%{opacity:0}}
+    @keyframes f5{0%,32%{opacity:0}34%,88%{opacity:1}94%,100%{opacity:0}}
+    @keyframes f6{0%,44%{opacity:0}47%,88%{opacity:1}94%,100%{opacity:0}}
+    @keyframes f7{0%,52%{opacity:0}55%,88%{opacity:1}94%,100%{opacity:0}}
+    #cursor{ animation:blink 1s steps(1) infinite; }
+    @keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}
+  </style>
+
+  <rect width="640" height="320" rx="10" fill="#0d1117"/>
+  <circle cx="24" cy="24" r="6" fill="#ff5f56"/>
+  <circle cx="46" cy="24" r="6" fill="#ffbd2e"/>
+  <circle cx="68" cy="24" r="6" fill="#27c93f"/>
+  <text x="320" y="29" text-anchor="middle" class="dim" font-size="13">graxella — tutorial 02</text>
+  <line x1="0" y1="44" x2="640" y2="44" stroke="#21262d"/>
+
+  <g transform="translate(24,74)">
+    <text id="l1" class="l cmd"  y="0">$ python tutorials/02_self_healing.py</text>
+    <text id="l2" class="l line" y="34">call 1 (tool drifts, graxella heals it once):</text>
+    <text id="l3" class="l ok"   y="58">   in transit (ref 1234)</text>
+    <text id="l4" class="l line" y="92">call 2 (cached recipe reused — the healer does NOT run again):</text>
+    <text id="l5" class="l ok"   y="116">   in transit (ref 5678)</text>
+    <text id="l6" class="l accent" y="160">healer invocations, ever: 1<tspan class="dim" font-weight="400">   ← fail once, learn forever</tspan></text>
+    <text id="l7" class="l accent" y="188">proposals awaiting review: 1<tspan class="dim" font-weight="400">   ← nothing is promoted silently</tspan></text>
+    <rect id="cursor" x="0" y="200" width="9" height="16" fill="#c9d1d9"/>
+  </g>
+</svg>
