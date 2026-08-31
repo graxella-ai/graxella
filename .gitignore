@@ -49,3 +49,10 @@ _archived.git/
 # Office temp
 ~$*.pptx
 ~$*.docx
+
+# Superseded local-UI prototypes: replaced by `graxella show` (api/show.py).
+# Kept on disk for reference, deliberately not shipped.
+packages/graxella/graxella/api/ui.py
+packages/graxella/graxella/api/studio.py
+packages/graxella/graxella/api/pipeline_compile.py
+packages/graxella/graxella/api/static/
