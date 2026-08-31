@@ -47,14 +47,21 @@ dependencies = [
     "pydantic-settings>=2.2",  # graxella.mnema.config
     "sqlmodel>=0.0.16",        # graxella.mnema.adapters.sqlite.repository
     "sqlalchemy>=2",           # imported directly by the same repository module
+    # @grx.tool RETURNS a LangChain BaseTool -- the primary API already
+    # depends on that abstraction, so making it an extra was a fiction the
+    # error message had to apologise for. `pip install graxella` must just
+    # work. This is langchain-core only (httpx/pydantic/pyyaml/tenacity),
+    # NOT langchain or langgraph.
+    "langchain-core>=0.3",
 ]
 
 [tool.uv.sources]
 agent2society = { workspace = true }
 
 [project.optional-dependencies]
+# langchain-core is core now; this extra adds the graph runtime itself,
+# needed only for the mesh/supervisor adapters and tutorials 08+.
 langgraph = [
-    "langchain-core>=0.3",
     "langgraph>=0.2",
 ]
 ollama = [

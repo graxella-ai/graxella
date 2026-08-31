@@ -245,21 +245,10 @@ class Session:
             bound.apply_defaults()
             return interceptor(dict(bound.arguments))
 
-        # Deferred: langchain_core is the host framework's dep, not ours.
-        # But a raw ModuleNotFoundError here is a terrible first impression --
-        # @grx.tool is the first thing anyone calls -- so say exactly what to
-        # install instead of leaking an import trace.
-        try:
-            from langchain_core.tools import StructuredTool
-        except ImportError as exc:
-            raise ImportError(
-                "@grx.tool returns a LangChain tool, which needs "
-                "langchain-core.\n"
-                "    pip install 'graxella[langgraph]'\n"
-                "The governance core (Session, Memory, the gate, the ledger) "
-                "works without it -- only the tool decorator and the mesh "
-                "adapters need a host framework."
-            ) from exc
+        # Imported lazily to keep Session construction cheap, not because it
+        # is optional: langchain-core is a core dependency, since @grx.tool
+        # returns a StructuredTool. `pip install graxella` is enough.
+        from langchain_core.tools import StructuredTool
         bt = StructuredTool.from_function(
             runner, name=tool_name,
             description=(f.__doc__ or tool_name).strip())

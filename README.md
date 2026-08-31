@@ -105,14 +105,19 @@ what makes it change-control rather than a cache.
 ## Install
 
 ```bash
-pip install "graxella[langgraph]"     # governance + the LangChain tool decorator
-pip install "graxella[langgraph,heal]"  # + the built-in drift healer (DSPy/Ollama)
+pip install graxella            # everything above works
+pip install "graxella[heal]"    # + the built-in drift healer (DSPy/Ollama)
 ```
 
-The governance core (`Session`, `Memory`, the gate, the ledger) has no
-framework dependency. `langgraph` brings `langchain-core` for `@grx.tool`
-and the mesh adapters. Nothing calls out to a hosted service — the healer
-runs against a local Ollama by default.
+One command, no extras needed. Extras are only for things you might
+genuinely not want: `[heal]` (a local model runtime for repairing
+ambiguous drift), `[langgraph]` (the graph runtime, for the mesh
+adapters and tutorials 08+), `[embed]` (local sentence-transformers),
+`[otel]`, `[mcp]`.
+
+Nothing calls out to a hosted service — the healer runs against a local
+Ollama by default, and without one, drift fails **loudly** rather than
+faking a repair.
 
 ## Measured, not asserted
 
