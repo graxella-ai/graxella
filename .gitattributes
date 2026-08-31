@@ -1,0 +1,29 @@
+# Normalize line endings: LF in the repository, native in the working tree.
+# Without this, a Windows clone can commit CRLF and every later diff on a
+# Linux CI runner shows the whole file as changed.
+* text=auto eol=lf
+
+# Windows-native scripts keep CRLF.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Binary — never touch these.
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.pdf   binary
+*.db    binary
+*.pptx  binary
+*.docx  binary
+*.whl   binary
+
+# Notebooks are JSON: diff them as text, but don't let GitHub's language
+# stats call this a Jupyter project when the substance is the Python package.
+*.ipynb text
+*.ipynb linguist-documentation
+
+# Generated / vendored — excluded from language stats so the repo reads as
+# what it is.
+uv.lock         linguist-generated
+assets/*.svg    linguist-documentation
