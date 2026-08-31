@@ -34,6 +34,19 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv run python scripts/check_wheels.py
 
+  claims-scorecard:
+    # benchmarks/eval_harness.py: a small, fast probe suite over the exact
+    # claims an external code review broke (2026-08-30) -- gate evidence
+    # isolation, drift classification precision, recipe robustness,
+    # demotion thresholds, and (skipped gracefully with no local embedder
+    # on a CI runner) semantic routing. Exits nonzero on regression.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - run: uv sync
+      - run: uv run python benchmarks/eval_harness.py
+
   coverage:
     runs-on: ubuntu-latest
     steps:
