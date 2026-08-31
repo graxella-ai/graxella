@@ -13,7 +13,7 @@ since LangGraph 1.0 and removed in 2.0 — these tests now bind agents via
 from __future__ import annotations
 
 import pytest
-from mnema.adapters.embedder.tfidf import TfidfEmbedder
+from graxella.mnema.adapters.embedder.tfidf import TfidfEmbedder
 
 import graxella
 from graxella.beliefs import Memory

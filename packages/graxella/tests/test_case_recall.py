@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import pytest
-from mnema.adapters.embedder.tfidf import TfidfEmbedder
+from graxella.mnema.adapters.embedder.tfidf import TfidfEmbedder
 
 import graxella
 from graxella.beliefs import Memory

@@ -22,7 +22,7 @@ from graxella.mesh import _AUTO_EMBED_CACHE
 
 def _ollama_up() -> bool:
     try:
-        from mnema.adapters.embedder.ollama import OllamaEmbedder
+        from graxella.mnema.adapters.embedder.ollama import OllamaEmbedder
         return OllamaEmbedder().health_check()
     except Exception:
         return False

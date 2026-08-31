@@ -21,7 +21,7 @@ import logging
 import re
 from pathlib import Path
 
-from mnema.integrations.sdk import MnemaClient
+from graxella.mnema.integrations.sdk import MnemaClient
 
 _log = logging.getLogger("graxella")
 
@@ -464,7 +464,7 @@ def best_embedder() -> Any:
 
     Name it with ``getattr(best_embedder(), 'model_id', ...)``.
     """
-    from mnema.integrations.sdk import _best_embedder
+    from graxella.mnema.integrations.sdk import _best_embedder
     return _best_embedder()
 
 

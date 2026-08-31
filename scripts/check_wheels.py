@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-PACKAGES = ["packages/mnema", "packages/agent2society", "packages/graxella"]
+PACKAGES = ["packages/agent2society", "packages/graxella"]
 
 SMOKE = """
 import graxella

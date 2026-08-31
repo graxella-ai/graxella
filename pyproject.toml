@@ -3,7 +3,7 @@
 # Virtual project: this root is never built or published — it exists to bind
 # the uv workspace together and host the shared dev environment.
 #
-#   uv sync          → one .venv with graxella + mnema + agent2society editable
+#   uv sync          → one .venv with graxella + agent2society editable
 #   uv run pytest    → the graxella core suite (packages/graxella/tests)
 
 [project]
@@ -27,8 +27,9 @@ dev = [
     "pytest>=8",
     "pytest-cov>=5",
     "ruff>=0.4",
-    "hypothesis>=6.100",   # mnema's property tests
+    "hypothesis>=6.100",   # graxella.mnema property tests
     "langgraph>=0.2",      # adapter contract tests (0C-2)
+    "langchain>=1.0",      # create_agent (langgraph's create_react_agent successor) — notebooks
     "langchain-core>=0.3",
     "opentelemetry-sdk>=1.25",   # 3-3 OTel GenAI emission + tests
     "fastapi>=0.110",            # 3-1 control-plane service + tests
@@ -73,4 +74,4 @@ fail_under = 75
 
 [tool.ruff]
 line-length = 100
-src = ["packages/graxella/graxella", "packages/mnema/src", "packages/agent2society/src"]
+src = ["packages/graxella/graxella", "packages/agent2society/src"]

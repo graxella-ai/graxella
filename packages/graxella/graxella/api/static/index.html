@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>graxella · governance</title>
+<style>
+  :root{
+    --bg:#0F1513; --panel:#161E1A; --panel2:#1C251F; --node:#212A24;
+    --line:#2A342E; --line2:#37423B; --ink:#E4ECE6; --muted:#8F9E96;
+    --green:#43C495; --green-d:#14805E; --amber:#E0A85C; --amber-d:#A8691C;
+    --red:#D97B63; --blue:#7FB0E0; --violet:#8C7BE0; --skill:#E0C05C; --mem:#D98CC0;
+    --mono:'Consolas','SF Mono',ui-monospace,monospace;
+    --sans:'Segoe UI',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
+    background-image:radial-gradient(circle,#1c2620 1px,transparent 1px);background-size:22px 22px}
+  header{display:flex;align-items:center;gap:16px;padding:13px 22px;border-bottom:1px solid var(--line);
+    background:rgba(18,24,21,.92);position:sticky;top:0;z-index:10}
+  header .logo{font-weight:700;font-size:17px} header .logo span{color:var(--green);margin:0 2px}
+  header .pill{font-family:var(--mono);font-size:12px;color:var(--muted);border:1px solid var(--line);
+    border-radius:20px;padding:4px 12px} header .pill b{color:var(--green)}
+  .tabs{display:flex;gap:4px;margin-left:auto}
+  .tab{font-family:var(--mono);font-size:13px;padding:7px 15px;border-radius:6px;cursor:pointer;
+    color:var(--muted);border:1px solid transparent;user-select:none}
+  .tab.active{color:var(--ink);background:var(--panel2);border-color:var(--line)} .tab b{color:var(--amber)}
+  main{padding:16px 22px 66px} .view{display:none} .view.active{display:block}
+  h2{font-size:15px;font-weight:600;margin:0 0 3px} .sub{color:var(--muted);font-size:12.5px;margin:0 0 12px}
+
+  /* toolbar */
+  .toolbar{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .toolbar .spacer{flex:1}
+  .btn{font-family:var(--mono);font-size:12.5px;font-weight:600;border-radius:6px;padding:7px 13px;
+    cursor:pointer;border:1px solid var(--line2);background:var(--panel2);color:var(--ink);user-select:none}
+  .btn.on{background:var(--green-d);border-color:var(--green-d);color:#fff}
+  .btn.ghost{background:transparent}
+  .hint{font-family:var(--mono);font-size:11.5px;color:var(--amber)}
+
+  /* canvas + traces layout */
+  .stage-wrap{display:flex;gap:14px}
+  .canvas-wrap{flex:1;position:relative;overflow:auto;border:1px solid var(--line);border-radius:10px;
+    background:rgba(20,28,23,.4);height:560px}
+  .canvas{position:relative;min-width:980px;min-height:540px}
+  #wires{position:absolute;top:0;left:0;pointer-events:none;z-index:1}
+  .gbox{position:absolute;z-index:0;border:1px solid var(--line);border-radius:12px;
+    background:rgba(140,123,224,.05)}
+  .gbox .gt{position:absolute;top:7px;left:12px;font-size:11.5px;font-weight:600;color:var(--muted)}
+  .node{position:absolute;z-index:2;width:176px;display:flex;gap:10px;align-items:center;background:var(--node);
+    border:1px solid var(--line2);border-left:3px solid var(--muted);border-radius:9px;padding:10px 12px;
+    cursor:pointer;user-select:none}
+  body.editing .node{cursor:grab} body.editing .node.drag{cursor:grabbing}
+  .node.healthy{border-left-color:var(--green)} .node.amber{border-left-color:var(--amber);animation:pulse 2s infinite}
+  @keyframes pulse{50%{border-left-color:var(--amber-d)}}
+  .node .ico{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;
+    font-size:14px;background:var(--panel2);border:1px solid var(--line2);flex:none}
+  .node.agent .ico{color:var(--green)} .node.tool .ico{color:var(--blue)} .node.gate .ico{color:var(--amber)}
+  .node.trigger .ico{color:var(--violet)} .node.skill .ico{color:var(--skill)} .node.memory .ico{color:var(--mem)}
+  .node .title{font-size:12.5px;font-weight:600;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .node .subt{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .node .dot{position:absolute;top:8px;right:9px;width:8px;height:8px;border-radius:50%;background:var(--muted)}
+  .node.healthy .dot{background:var(--green)} .node.amber .dot{background:var(--amber)}
+  .node .kindtag{position:absolute;bottom:-7px;left:10px;font-family:var(--mono);font-size:8.5px;
+    color:var(--muted);background:var(--bg);padding:0 5px}
+  .port{position:absolute;right:-7px;top:50%;transform:translateY(-50%);width:13px;height:13px;border-radius:50%;
+    background:var(--panel2);border:1.5px solid var(--green);display:none;z-index:3;cursor:crosshair}
+  body.editing .node:hover .port{display:block}
+  .node.connecting{outline:2px dashed var(--green);outline-offset:2px}
+
+  .legend{font-family:var(--mono);font-size:12px;color:var(--muted);margin-top:8px;display:flex;gap:20px;flex-wrap:wrap}
+  .ldot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .banner{background:rgba(224,168,92,.1);border:1px solid var(--amber-d);border-radius:8px;padding:10px 14px;
+    margin-bottom:12px;font-size:13px;display:none} .banner.show{display:block} .banner b{color:var(--amber)}
+  .banner a{color:var(--green);cursor:pointer;text-decoration:underline;margin-left:6px}
+
+  /* traces right pane */
+  .traces{width:340px;flex:none;border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    display:none;flex-direction:column;height:560px;overflow:hidden}
+  .traces.show{display:flex}
+  .traces .th{padding:11px 14px;border-bottom:1px solid var(--line);font-size:12.5px;font-weight:600}
+  .traces .th span{font-family:var(--mono);font-size:11px;color:var(--muted);font-weight:400;display:block;margin-top:2px}
+  .traces .tlist{overflow-y:auto;padding:8px}
+  .span{border:1px solid var(--line2);border-radius:7px;padding:8px 10px;margin-bottom:7px;background:var(--panel2)}
+  .span .sn{font-family:var(--mono);font-size:11.5px;font-weight:600;display:flex;justify-content:space-between;gap:8px}
+  .span .sn .st.OK{color:var(--green)} .span .sn .st.ERROR{color:var(--red)}
+  .span .bar{height:5px;border-radius:3px;background:var(--green-d);margin:6px 0 5px}
+  .span.err .bar{background:var(--red)}
+  .span .at{font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.5}
+  .traces .foot{padding:8px 12px;border-top:1px solid var(--line);font-family:var(--mono);font-size:10px;color:var(--muted)}
+
+  /* inspector */
+  .inspector{position:fixed;right:18px;top:150px;width:270px;z-index:40;background:var(--panel);
+    border:1px solid var(--green-d);border-radius:10px;padding:14px;display:none;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+  .inspector.show{display:block}
+  .inspector h4{margin:0 0 10px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  .inspector h4 .x{cursor:pointer;color:var(--muted);font-weight:400}
+  .fld{margin-bottom:9px} .fld label{display:block;font-family:var(--mono);font-size:10px;color:var(--muted);margin-bottom:3px}
+  .fld input,.fld select{width:100%;background:var(--panel2);color:var(--ink);border:1px solid var(--line2);
+    border-radius:6px;padding:7px 9px;font-family:var(--mono);font-size:12px}
+  .fld input:read-only{color:var(--muted)}
+  .insp-actions{display:flex;gap:8px;margin-top:12px}
+  .insp-actions button{flex:1;padding:7px 8px;font-size:11.5px}
+  .tbinput{font-family:var(--mono);font-size:12.5px;background:var(--panel2);color:var(--ink);
+    border:1px solid var(--line2);border-radius:6px;padding:6px 10px;width:150px}
+  .edge-hit{stroke:transparent;stroke-width:12;fill:none;cursor:pointer;pointer-events:stroke}
+  .edge-sel{stroke:var(--green)!important;stroke-width:2.6!important}
+  /* context menu + palette */
+  .menu{position:fixed;z-index:60;background:var(--panel);border:1px solid var(--line2);border-radius:8px;
+    padding:5px;display:none;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .menu.show{display:block}
+  .mi{font-family:var(--mono);font-size:12px;padding:7px 10px;border-radius:5px;cursor:pointer;color:var(--ink)}
+  .mi:hover{background:var(--panel2)} .mi.head{color:var(--muted);cursor:default;font-size:10.5px;padding:5px 10px}
+  .mi.del{color:var(--red)}
+
+  /* inbox */
+  .inbox{display:grid;grid-template-columns:minmax(330px,1fr) minmax(360px,1.15fr);gap:18px}
+  .card{background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:14px 16px;margin-bottom:12px;
+    cursor:pointer} .card:hover{border-color:var(--green-d)} .card.sel{border-color:var(--green)}
+  .card .tag{font-family:var(--mono);font-size:11px;color:var(--amber);background:rgba(168,105,28,.16);
+    border-radius:12px;padding:2px 9px;display:inline-block;margin-bottom:8px}
+  .card .stmt{font-weight:600;font-size:13.5px;line-height:1.35}
+  .card .meta{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-top:8px}
+  .detail{background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:18px;position:sticky;top:78px}
+  .detail pre{font-family:var(--mono);font-size:12px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:6px;padding:12px;white-space:pre-wrap;line-height:1.5;overflow-x:auto}
+  .row{display:flex;gap:10px;align-items:center;margin-top:14px}
+  input.by{font-family:var(--mono);font-size:12px;background:var(--panel2);color:var(--ink);border:1px solid var(--line2);
+    border-radius:6px;padding:8px 10px;flex:1}
+  button{font-family:var(--mono);font-size:13px;font-weight:600;border-radius:6px;padding:9px 16px;cursor:pointer;
+    border:1px solid var(--line2);background:var(--panel2);color:var(--ink)}
+  button.approve{background:var(--green-d);border-color:var(--green-d);color:#fff}
+  button.reject{background:transparent;border-color:var(--red);color:var(--red)}
+  .empty{color:var(--muted);font-family:var(--mono);font-size:13px;padding:44px 8px;text-align:center;
+    border:1px dashed var(--line2);border-radius:9px}
+  .toast{position:fixed;bottom:60px;left:50%;transform:translateX(-50%);background:var(--green-d);color:#fff;
+    font-family:var(--mono);font-size:13px;padding:11px 20px;border-radius:8px;opacity:0;pointer-events:none;
+    transition:opacity .2s;z-index:70} .toast.show{opacity:1}
+  /* jupyter footer */
+  .jbar{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;align-items:center;gap:12px;padding:10px 22px;
+    background:rgba(18,24,21,.97);border-top:1px solid var(--line);font-family:var(--mono);font-size:12px}
+  .jbar .jlabel{color:var(--muted)} .jbar .jlabel b{color:var(--green)}
+  .jbar input.jurl{flex:1;min-width:120px;background:var(--panel2);color:var(--green);border:1px solid var(--line2);
+    border-radius:6px;padding:7px 10px;font-family:var(--mono);font-size:12px}
+  .jbar button{padding:7px 13px;font-size:12px}
+  .jbar .jroot{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px}
+  .jdot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:6px}
+  .jdot.up{background:var(--green)} .jdot.off{background:var(--amber)}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">graxella<span>·</span>governance</div>
+  <div class="pill" id="health">ledger: connecting…</div>
+  <div class="tabs">
+    <div class="tab active" data-view="pipeline">Pipeline</div>
+    <div class="tab" data-view="inbox">Approval&nbsp;inbox <b id="pcount"></b></div>
+  </div>
+</header>
+
+<main>
+  <section class="view active" id="view-pipeline">
+    <div class="banner" id="banner"></div>
+    <div class="toolbar">
+      <div><h2 style="display:inline">The pipeline</h2>
+        <span class="sub" style="margin-left:10px">nodes colored by live health · edit to add, connect, retype</span></div>
+      <div class="spacer"></div>
+      <span class="hint" id="edithint"></span>
+      <input class="tbinput" id="pname" style="display:none" placeholder="pipeline name"
+             oninput="if(model)model.name=this.value" title="pipeline name">
+      <button class="btn ghost" id="newbtn" style="display:none" onclick="newPipeline()" title="blank canvas">New</button>
+      <button class="btn ghost" id="addbtn" style="display:none" onclick="showPalette(event)">+ Add node</button>
+      <button class="btn ghost" id="snapbtn" style="display:none" onclick="toggleSnap()" title="snap to grid">Snap: off</button>
+      <button class="btn ghost" id="savebtn" style="display:none" onclick="saveModel()">Save</button>
+      <button class="btn ghost" id="compilebtn" onclick="compilePipeline()" title="emit runnable generate.py">Compile</button>
+      <button class="btn on" id="runbtn" onclick="runPipeline()" title="run the pipeline against the ledger">Run ▶</button>
+      <button class="btn" id="editbtn" onclick="toggleEdit()">Edit</button>
+      <button class="btn ghost" id="tracebtn" onclick="toggleTraces()">Traces ▸</button>
+    </div>
+    <div class="stage-wrap">
+      <div class="canvas-wrap"><div class="canvas" id="canvas"><svg id="wires"></svg></div></div>
+      <div class="traces" id="traces">
+        <div class="th">OpenTelemetry spans <span>gen_ai.* + graxella.* · exported to your OTel collector / Jaeger</span></div>
+        <div class="tlist" id="tlist"></div>
+        <div class="foot" id="tfoot"></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="ldot" style="background:var(--green)"></span>healthy</span>
+      <span><span class="ldot" style="background:var(--amber)"></span>behavior changed</span>
+      <span><span class="ldot" style="background:var(--muted)"></span>no data yet</span>
+      <span id="flow-note"></span>
+    </div>
+  </section>
+
+  <section class="view" id="view-inbox">
+    <h2>Approval inbox</h2>
+    <p class="sub">Change proposals awaiting a human — reviewed with cited evidence, then applied deterministically.</p>
+    <div class="inbox">
+      <div id="pending"><div class="empty">loading…</div></div>
+      <div class="detail" id="detail"><h3>Select a proposal</h3><p class="sub">Its full cited verdict appears here.</p></div>
+    </div>
+  </section>
+</main>
+
+<div class="inspector" id="inspector"></div>
+<div class="menu" id="ctx"></div>
+<div class="jbar" id="jbar"><span class="jlabel"><span class="jdot"></span>Jupyter: checking…</span></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const ICON = {trigger:'▶', tool:'⚙', agent:'✦', skill:'◈', gate:'⑃', memory:'❖'};
+const CARD_W = 176, CARD_H = 56;
+let model = null, health = {}, KINDS = ['trigger','tool','agent','skill','gate','memory'];
+let editing = false, tracesOn = false, connectFrom = null, selected = null, pending = [];
+let selNode = null, selEdge = null, snapOn = false, suppressClick = false;
+
+fetch('/node_kinds').then(r=>r.json()).then(k=>KINDS=k).catch(()=>{});
+
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  t.classList.add('active'); $('#view-'+t.dataset.view).classList.add('active');
+  if(t.dataset.view==='pipeline') requestAnimationFrame(render);
+});
+
+async function refreshHealth(){
+  try{ const h=await (await fetch('/health')).json();
+    $('#health').innerHTML=`ledger: <b>${h.beliefs}</b> beliefs · ns ${h.namespace}`;
+  }catch(e){ $('#health').textContent='ledger: offline'; }
+}
+
+// ---------- model ----------
+async function loadModel(){
+  const d = await (await fetch('/pipeline')).json();
+  health = d.health || {};
+  if(!d.nodes){ model=null; return; }
+  // keep local edits while editing
+  if(!editing || !model) model = {name:d.name, nodes:d.nodes.map(n=>({...n})), edges:(d.edges||[]).map(e=>({...e}))};
+  else health = d.health || health;
+}
+async function refreshPipeline(){
+  try{ await loadModel(); }catch(e){ return; }
+  render();
+  const amber = Object.entries(health).filter(([k,v])=>v==='amber').map(([k])=>k);
+  const b=$('#banner');
+  if(amber.length){ b.classList.add('show');
+    b.innerHTML=`<b>⚠ Behavior changed</b> — ${amber.join(', ')} drifted under the agent. A repair proposal is waiting.
+      <a onclick="document.querySelector('.tab[data-view=inbox]').click()">Review in inbox →</a>`;
+  } else b.classList.remove('show');
+}
+function nodeById(id){ return model.nodes.find(n=>n.id===id); }
+
+// ---------- render ----------
+function render(){
+  const cv=$('#canvas'); if(!model){ cv.innerHTML='<svg id="wires"></svg><div class="empty" style="margin:40px;min-width:600px">No pipeline manifest. Run <b style="color:var(--green)">graxella serve --demo</b> or drop a pipeline.json beside your ledger.</div>'; return; }
+  // group boxes
+  const groups={};
+  model.nodes.forEach(n=>{ if(!n.group) return; const g=groups[n.group]||(groups[n.group]={x1:1e9,y1:1e9,x2:-1e9,y2:-1e9});
+    g.x1=Math.min(g.x1,n.x); g.y1=Math.min(g.y1,n.y); g.x2=Math.max(g.x2,n.x+CARD_W); g.y2=Math.max(g.y2,n.y+CARD_H); });
+  let maxX=980,maxY=520; model.nodes.forEach(n=>{maxX=Math.max(maxX,n.x+CARD_W+40);maxY=Math.max(maxY,n.y+CARD_H+50);});
+  let html='<svg id="wires"></svg>';
+  for(const [name,g] of Object.entries(groups)){
+    const pad=18; html+=`<div class="gbox" style="left:${g.x1-pad}px;top:${g.y1-26}px;width:${g.x2-g.x1+pad*2}px;height:${g.y2-g.y1+pad+30}px"><div class="gt">${esc(name)}</div></div>`;
+  }
+  model.nodes.forEach(n=>{
+    const h=health[n.id]||'none';
+    const sel = selNode===n.id ? 'style_sel' : '';
+    html+=`<div class="node ${n.kind} ${h}" id="n-${n.id}" style="left:${n.x}px;top:${n.y}px;${selNode===n.id?'outline:2px solid var(--green);outline-offset:2px':''}"
+        onmousedown="startDrag(event,'${n.id}')" oncontextmenu="nodeMenu(event,'${n.id}');return false"
+        onclick="nodeClick(event,'${n.id}')" title="${esc(n.label)}">
+      <div class="ico">${ICON[n.kind]||'●'}</div>
+      <div style="min-width:0"><div class="title">${esc(n.label)}</div><div class="subt">${esc(n.subtitle||'')}</div></div>
+      <span class="dot"></span><span class="kindtag">${n.kind}</span>
+      <span class="port" onmousedown="event.stopPropagation()" onclick="portClick(event,'${n.id}')"></span></div>`;
+  });
+  cv.style.width=maxX+'px'; cv.style.height=maxY+'px'; cv.innerHTML=html;
+  drawWires();
+  $('#flow-note').textContent=`${model.nodes.length} nodes · ${model.edges.length} edges`;
+}
+function drawWires(){
+  const cv=$('#canvas'), svg=$('#wires'); if(!svg) return;
+  svg.setAttribute('width',cv.style.width||cv.scrollWidth); svg.setAttribute('height',cv.style.height||cv.scrollHeight);
+  let p='';
+  model && model.edges.forEach((e,i)=>{
+    const a=nodeById(e.from), b=nodeById(e.to); if(!a||!b) return;
+    const x1=a.x+CARD_W, y1=a.y+CARD_H/2, x2=b.x, y2=b.y+CARD_H/2, mx=(x1+x2)/2;
+    const amber=(health[e.to])==='amber';
+    const d=`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`;
+    const selc = selEdge===i ? 'edge-sel' : '';
+    // transparent thick hit-path for easy clicking (edit mode)
+    if(editing) p+=`<path class="edge-hit" d="${d}" onclick="selectEdge(${i})"/>`;
+    p+=`<path class="${selc}" d="${d}" fill="none" stroke="${amber?'#A8691C':'#37423B'}" stroke-width="1.6"/>`;
+  });
+  svg.innerHTML=p;
+}
+
+// ---------- interactions ----------
+let drag=null;
+function startDrag(e,id){ if(!editing) return; if(e.button!==0) return;
+  const n=nodeById(id); drag={id,ox:e.clientX,oy:e.clientY,nx:n.x,ny:n.y,moved:false};
+  document.getElementById('n-'+id).classList.add('drag');
+  document.addEventListener('mousemove',onDrag); document.addEventListener('mouseup',endDrag);
+}
+function onDrag(e){ if(!drag) return; const n=nodeById(drag.id);
+  n.x=Math.max(0,drag.nx+(e.clientX-drag.ox)); n.y=Math.max(0,drag.ny+(e.clientY-drag.oy)); drag.moved=true;
+  const el=document.getElementById('n-'+drag.id); el.style.left=n.x+'px'; el.style.top=n.y+'px'; drawWires();
+}
+function endDrag(){ if(drag){ const el=document.getElementById('n-'+drag.id); el&&el.classList.remove('drag');
+    if(drag.moved){ suppressClick=true; if(snapOn){ const n=nodeById(drag.id); n.x=Math.round(n.x/20)*20; n.y=Math.round(n.y/20)*20; render(); } } }
+  document.removeEventListener('mousemove',onDrag); document.removeEventListener('mouseup',endDrag); drag=null;
+}
+function nodeClick(e,id){
+  if(suppressClick){ suppressClick=false; return; }
+  if(connectFrom){ if(connectFrom!==id) addEdge(connectFrom,id); clearConnect(); return; }
+  if(editing){ selectNode(id); } else { openNode(id); }
+}
+function portClick(e,id){ e.stopPropagation(); if(!editing) return;
+  connectFrom=id; document.getElementById('n-'+id).classList.add('connecting');
+  $('#edithint').textContent='click a target node to connect · Esc to cancel'; }
+function clearConnect(){ if(connectFrom){ const el=document.getElementById('n-'+connectFrom); el&&el.classList.remove('connecting'); }
+  connectFrom=null; $('#edithint').textContent=editHint(); }
+function editHint(){ return editing?'click to select · drag to move · drag the green port to connect · Del to remove':''; }
+function addEdge(from,to){ if(model.edges.some(e=>e.from===from&&e.to===to)) return;
+  model.edges.push({from,to}); render(); toast(`connected ${from} → ${to}`); }
+
+// ---------- selection + inspector ----------
+function selectNode(id){ selNode=id; selEdge=null; render(); renderInspector(); }
+function selectEdge(i){ selEdge=i; selNode=null; render(); renderInspector(); }
+function clearSel(){ selNode=null; selEdge=null; $('#inspector').classList.remove('show'); render(); }
+function renderInspector(){
+  const ins=$('#inspector');
+  if(selNode!=null){ const n=nodeById(selNode); if(!n){ ins.classList.remove('show'); return; }
+    ins.innerHTML=`<h4>Node <span class="x" onclick="clearSel()">✕</span></h4>
+      <div class="fld"><label>id</label><input value="${esc(n.id)}" readonly></div>
+      <div class="fld"><label>label</label><input id="f-label" value="${esc(n.label)}" oninput="setField('label',this.value)"></div>
+      <div class="fld"><label>subtitle</label><input id="f-sub" value="${esc(n.subtitle||'')}" oninput="setField('subtitle',this.value)"></div>
+      <div class="fld"><label>type</label><select id="f-kind" onchange="setField('kind',this.value)">
+        ${KINDS.map(k=>`<option ${k===n.kind?'selected':''}>${k}</option>`).join('')}</select></div>
+      <div class="fld"><label>group</label><input id="f-group" value="${esc(n.group||'')}" oninput="setField('group',this.value)"></div>
+      <div class="insp-actions"><button onclick="duplicateNode()">Duplicate</button>
+        <button class="reject" onclick="deleteSelected()">Delete</button></div>`;
+    ins.classList.add('show');
+  } else if(selEdge!=null){ const e=model.edges[selEdge]; if(!e){ ins.classList.remove('show'); return; }
+    ins.innerHTML=`<h4>Edge <span class="x" onclick="clearSel()">✕</span></h4>
+      <div class="fld"><label>connection</label><input value="${esc(e.from)} → ${esc(e.to)}" readonly></div>
+      <div class="insp-actions"><button class="reject" onclick="deleteSelected()">Delete edge</button></div>`;
+    ins.classList.add('show');
+  } else ins.classList.remove('show');
+}
+function setField(f,v){ const n=nodeById(selNode); if(!n) return; n[f]=v;
+  // live-update the card without a full inspector re-render (keeps focus)
+  const el=document.getElementById('n-'+selNode);
+  if(el){ if(f==='label'){ el.querySelector('.title').textContent=v; el.title=v; }
+    if(f==='subtitle') el.querySelector('.subt').textContent=v;
+    if(f==='kind'){ render(); renderInspector(); } if(f==='group') render(); } }
+function duplicateNode(){ const n=nodeById(selNode); if(!n) return; let i=1; while(nodeById(n.kind+'_copy'+i)) i++;
+  const id=n.kind+'_copy'+i; model.nodes.push({...n,id,x:n.x+30,y:n.y+30,label:n.label+' copy'}); selectNode(id); toast('duplicated'); }
+function deleteSelected(){
+  if(selNode!=null){ const id=selNode; model.nodes=model.nodes.filter(n=>n.id!==id);
+    model.edges=model.edges.filter(e=>e.from!==id&&e.to!==id); toast(`deleted ${id}`); }
+  else if(selEdge!=null){ model.edges.splice(selEdge,1); toast('edge deleted'); }
+  clearSel();
+}
+
+// new / blank pipeline
+function newPipeline(){ if(!confirm('Start a blank pipeline? Unsaved edits are lost.')) return;
+  model={name:'new-pipeline',nodes:[],edges:[]}; health={}; selNode=selEdge=null; $('#pname').value=model.name;
+  render(); renderInspector(); toast('blank pipeline — add nodes'); }
+function toggleSnap(){ snapOn=!snapOn; $('#snapbtn').textContent='Snap: '+(snapOn?'on':'off'); $('#snapbtn').classList.toggle('on',snapOn); }
+
+// context menu
+function nodeMenu(e,id){ if(!editing){ return; } e.preventDefault();
+  const n=nodeById(id), ctx=$('#ctx');
+  ctx.innerHTML=`<div class="mi head">${esc(n.label)}</div>
+    <div class="mi head">change type ▾</div>
+    ${KINDS.map(k=>`<div class="mi" onclick="setKind('${id}','${k}')">${k===n.kind?'● ':'○ '}${k}</div>`).join('')}
+    <div class="mi" onclick="renameNode('${id}')">✎ rename…</div>
+    <div class="mi del" onclick="deleteNode('${id}')">🗑 delete</div>`;
+  ctx.style.left=Math.min(e.clientX,innerWidth-180)+'px'; ctx.style.top=Math.min(e.clientY,innerHeight-260)+'px';
+  ctx.classList.add('show');
+}
+function setKind(id,k){ nodeById(id).kind=k; hideMenu(); render(); toast(`${id} → ${k}`); }
+function renameNode(id){ const n=nodeById(id); const v=prompt('Node label',n.label); if(v!=null){ n.label=v; } hideMenu(); render(); }
+function deleteNode(id){ model.nodes=model.nodes.filter(n=>n.id!==id); model.edges=model.edges.filter(e=>e.from!==id&&e.to!==id);
+  hideMenu(); render(); toast(`deleted ${id}`); }
+function hideMenu(){ $('#ctx').classList.remove('show'); }
+document.addEventListener('click',e=>{ if(!e.target.closest('#ctx')&&!e.target.closest('.menu')) hideMenu(); });
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){ clearConnect(); hideMenu(); hidePalette(); clearSel(); return; }
+  if(!editing) return;
+  const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement.tagName);
+  if((e.key==='Delete'||e.key==='Backspace') && !typing && (selNode!=null||selEdge!=null)){ e.preventDefault(); deleteSelected(); }
+});
+
+// add node palette
+function showPalette(e){ const ctx=$('#ctx');
+  ctx.innerHTML=`<div class="mi head">add node ▾</div>`+KINDS.map(k=>`<div class="mi" onclick="addNode('${k}')">${ICON[k]||'●'} ${k}</div>`).join('');
+  ctx.style.left=e.clientX+'px'; ctx.style.top=e.clientY+'px'; ctx.classList.add('show'); e.stopPropagation();
+}
+function hidePalette(){ hideMenu(); }
+function addNode(kind){ let i=1; while(nodeById(kind+'_'+i)) i++; const id=kind+'_'+i;
+  const cw=$('#canvas-wrap'); model.nodes.push({id,label:kind+' '+i,subtitle:'new '+kind,kind,x:60,y:60,group:''});
+  hideMenu(); render(); toast(`added ${id} — drag it into place`); }
+
+// edit / traces toggles
+function toggleEdit(){ editing=!editing; document.body.classList.toggle('editing',editing);
+  $('#editbtn').classList.toggle('on',editing); $('#editbtn').textContent=editing?'Editing':'Edit';
+  ['addbtn','savebtn','newbtn','snapbtn'].forEach(id=>$('#'+id).style.display=editing?'inline-block':'none');
+  $('#pname').style.display=editing?'inline-block':'none'; if(model)$('#pname').value=model.name||'';
+  $('#edithint').textContent=editHint();
+  if(!editing) clearSel(); clearConnect(); render();
+}
+async function saveModel(){
+  try{ const r=await (await fetch('/pipeline/save',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(model)})).json();
+    toast(`Saved ${r.nodes} nodes · ${r.edges} edges`);
+  }catch(e){ toast('Save failed: '+e); }
+}
+async function runPipeline(){
+  const b=$('#runbtn'); b.disabled=true; b.textContent='Running…';
+  try{ if(editing) await fetch('/pipeline/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
+    const r=await (await fetch('/pipeline/run',{method:'POST'})).json();
+    if(r.ran){ const f=r.failed&&r.failed.length; toast(`Ran ${r.nodes} nodes`+(f?` · ${r.failed.join(', ')} failed`:' · all ok')); }
+    else toast('Run: '+(r.detail||'nothing to run'));
+  }catch(e){ toast('Run failed: '+e); }
+  b.disabled=false; b.textContent='Run ▶';
+  editing=false; await refreshPipeline(); refreshTraces();  // show the run in topology + traces
+}
+async function compilePipeline(){
+  try{ if(editing) await fetch('/pipeline/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(model)});
+    const r=await (await fetch('/pipeline/compile',{method:'POST'})).json();
+    toast(r.opened?`Compiled → generate.py (opened in VS Code)`:`Compiled → ${r.path}`);
+  }catch(e){ toast('Compile failed: '+e); }
+}
+function toggleTraces(){ tracesOn=!tracesOn; $('#traces').classList.toggle('show',tracesOn);
+  $('#tracebtn').classList.toggle('on',tracesOn); $('#tracebtn').textContent=tracesOn?'Traces ◂':'Traces ▸';
+  if(tracesOn) refreshTraces(); requestAnimationFrame(drawWires); }
+
+// ---------- traces ----------
+async function refreshTraces(){
+  if(!tracesOn) return;
+  let d; try{ d=await (await fetch('/traces')).json(); }catch(e){ return; }
+  const spans=d.spans||[]; const max=Math.max(1,...spans.map(s=>s.duration_ms||0));
+  $('#tlist').innerHTML = spans.length ? spans.map(s=>{
+    const w=Math.max(3,Math.round(100*(s.duration_ms||0)/max));
+    const at=Object.entries(s.attributes||{}).map(([k,v])=>`${k}=${v}`).slice(0,4).join('<br>');
+    return `<div class="span ${s.status==='ERROR'?'err':''}">
+      <div class="sn"><span>${esc(s.name)}</span><span class="st ${s.status}">${s.status}${s.duration_ms!=null?' · '+Math.round(s.duration_ms)+'ms':''}</span></div>
+      <div class="bar" style="width:${w}%"></div><div class="at">${at}</div></div>`;
+  }).join('') : '<div class="empty">No spans yet.</div>';
+  $('#tfoot').textContent=`${spans.length} spans · reconstructed from the outcome ledger`;
+}
+
+// ---------- inbox ----------
+async function refreshPending(){
+  try{ pending=await (await fetch('/gate/pending')).json(); }catch(e){ pending=[]; }
+  $('#pcount').textContent=pending.length||''; const box=$('#pending');
+  if(!pending.length){ box.innerHTML='<div class="empty">No proposals awaiting review.</div>'; return; }
+  box.innerHTML=''; pending.forEach(p=>{ const div=document.createElement('div');
+    div.className='card'+(selected===p.proposal_id?' sel':'');
+    div.innerHTML=`<span class="tag">${(p.kind||'change').toUpperCase()} · needs human</span>
+      <div class="stmt">${esc(p.reason||p.proposal_id)}</div>
+      <div class="meta">domain ${p.domain||'—'} · posterior ${p.posterior??'—'} · n=${p.evidence_n??0}</div>`;
+    div.onclick=()=>selectProposal(p.proposal_id); box.appendChild(div); });
+}
+async function selectProposal(id){ selected=id; await refreshPending(); let why='(no verdict yet)';
+  try{ why=(await (await fetch('/gate/why/'+encodeURIComponent(id))).json()).why||why; }catch(e){}
+  $('#detail').innerHTML=`<h3>Why believed — <span style="color:var(--muted);font-family:var(--mono);font-size:12px">${id}</span></h3>
+    <pre>${esc(why)}</pre><div class="row"><input class="by" id="by" placeholder="your name (recorded)"></div>
+    <div class="row"><button class="reject" onclick="decide('reject')">✕ Reject</button>
+    <button class="approve" onclick="decide('approve')">✓ Approve</button>
+    <span style="color:var(--muted);font-size:11.5px;margin-left:auto">deterministic · zero LLM</span></div>`;
+}
+async function decide(kind){ if(!selected) return; const by=($('#by').value||'operator').trim();
+  try{ await fetch('/gate/'+kind,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({proposal_id:selected,by,note:'via graxella UI'})});
+    toast(kind==='approve'?`Approved as ${by}`:`Rejected by ${by}`); selected=null;
+    $('#detail').innerHTML='<h3>Select a proposal</h3>'; await refreshPending();
+  }catch(e){ toast('Failed: '+e); }
+}
+
+// ---------- node notebook ----------
+async function openNode(id){ toast(`Opening ${id} …`);
+  try{ const r=await (await fetch('/node/'+encodeURIComponent(id)+'/open',{method:'POST'})).json();
+    if(r.opened&&r.mode==='vscode') toast(`Opened ${id} in VS Code`);
+    else if(r.opened&&r.mode==='jupyter'){ toast(`Opening ${id} in Jupyter …`); if(r.url) window.open(r.url,'_blank'); }
+    else toast(`Notebook ready: ${r.path}`);
+  }catch(e){ toast('Could not open node: '+e); }
+}
+
+// ---------- jupyter footer ----------
+async function refreshJupyter(){ let j; try{ j=await (await fetch('/studio/jupyter')).json(); }catch(e){ return; }
+  const bar=$('#jbar');
+  if(j.running){ bar.innerHTML=`<span class="jlabel"><span class="jdot up"></span>Jupyter <b>live</b></span>
+    <input class="jurl" id="jurl" readonly value="${j.url}" onclick="this.select()">
+    <button onclick="copyJ()">Copy</button>
+    <button class="approve" onclick="window.open($('#jurl').value,'_blank')">Open ↗</button>
+    <span class="jroot" title="${j.root}">root: ${j.root}</span>`;
+  } else if(j.available){ bar.innerHTML=`<span class="jlabel"><span class="jdot off"></span>Jupyter: not started</span>
+    <button class="approve" onclick="startJ(this)">Start Jupyter server</button>`;
+  } else { bar.innerHTML=`<span class="jlabel"><span class="jdot off"></span>Jupyter Lab not installed — <b>pip install jupyterlab</b> (VS Code still works)</span>`; }
+}
+async function startJ(btn){ btn.disabled=true; btn.textContent='Starting…';
+  try{ await fetch('/studio/jupyter/start',{method:'POST'}); toast('Jupyter started'); }catch(e){ toast('Failed: '+e); } refreshJupyter(); }
+function copyJ(){ const i=$('#jurl'); i.select(); try{document.execCommand('copy');}catch(e){} navigator.clipboard&&navigator.clipboard.writeText(i.value); toast('Jupyter URL copied'); }
+
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2400); }
+
+function tick(){ refreshHealth(); if(!editing) refreshPipeline(); refreshJupyter(); refreshTraces(); if(!selected) refreshPending(); }
+tick(); setInterval(tick,4000);
+window.addEventListener('resize',drawWires);
+// dev deep-links to open a state directly (used for previews)
+setTimeout(()=>{ if(location.hash.includes('traces')&&!tracesOn) toggleTraces();
+  if(location.hash.includes('edit')&&!editing){ toggleEdit();
+    if(location.hash.includes('inspect')&&model&&model.nodes[0]) selectNode('AI_Agent'); } }, 1100);
+</script>
+</body>
+</html>

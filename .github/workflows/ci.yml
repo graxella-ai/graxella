@@ -3,7 +3,7 @@
 # The three suites run as separate pytest invocations on purpose: each
 # package has a top-level `tests` package, and collecting them together
 # collides on the module name. Per-suite jobs are also the better CI
-# shape — a mnema failure is visibly a mnema failure.
+# shape — a memory-engine failure is visibly a memory-engine failure.
 #
 # Lint gate is critical-rules-only (syntax errors, undefined names) so it
 # blocks real breakage without freezing the legacy style debt; tightening
@@ -65,7 +65,6 @@ jobs:
         python-version: ["3.12", "3.13"]
         suite:
           - packages/graxella/tests
-          - packages/mnema/tests
           - packages/agent2society/tests
           - packages/axon-fabric/tests
     name: pytest ${{ matrix.suite }} (py${{ matrix.python-version }})

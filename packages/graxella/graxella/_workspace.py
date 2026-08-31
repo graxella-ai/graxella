@@ -1,13 +1,16 @@
 """Workspace bootstrap for sibling packages (source-checkout fallback).
 
 The supported path is the uv workspace: ``uv sync`` at the repo root
-installs graxella, mnema, and agent2society editable into one venv, and
-this module then does nothing. The shim below exists only so a bare
-source checkout (no install at all) can still ``import graxella``.
+installs graxella and agent2society editable into one venv, and this
+module then does nothing. The shim below exists only so a bare source
+checkout (no install at all) can still ``import graxella``.
+
+Only agent2society needs this now: the memory engine lives inside the
+package as ``graxella.mnema`` and imports like any other submodule.
 
 Layouts probed, in order:
-  * monorepo (S-3+):  <repo>/packages/{mnema,agent2society}/src
-  * legacy (pre-S-3): <repo>/{mnema,agent2society}/src
+  * monorepo (S-3+):  <repo>/packages/agent2society/src
+  * legacy (pre-S-3): <repo>/agent2society/src
 """
 from __future__ import annotations
 
@@ -23,7 +26,7 @@ _CANDIDATE_ROOTS = (
 
 
 def _ensure_on_path() -> None:
-    for pkg in ("agent2society", "mnema"):
+    for pkg in ("agent2society",):
         if pkg in sys.modules and getattr(sys.modules[pkg], "__file__", None):
             continue  # properly installed — the shim has no business here
         for root in _CANDIDATE_ROOTS:

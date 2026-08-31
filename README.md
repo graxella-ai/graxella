@@ -11,7 +11,7 @@ reroutes future calls at dispatch time. Zero LLM retries, zero
 prompt-engineering, full W3C PROV-O audit trail.
 
 ```bash
-pip install graxella
+git clone <this repo> && cd graxella && uv sync
 ```
 
 ---
@@ -109,19 +109,18 @@ the submodule directly when you want the full surface (e.g.
 
 ## Install
 
+Not on PyPI yet — install from source (uv workspace, all packages editable):
+
 ```bash
-# Core — zero heavy deps. Rulebook, Datalog, SQLite store, audit.
-pip install graxella
-
-# With LangGraph adapter
-pip install "graxella[langgraph]"
-
-# With MCP server binding
-pip install "graxella[mcp]"
-
-# Everything (LangGraph + Ollama + MCP)
-pip install "graxella[all]"
+git clone <this repo> && cd graxella
+uv sync                      # core: rulebook, gate, SQLite ledger, audit
+uv sync --extra langgraph    # + LangGraph adapter
+uv sync --extra mcp          # + MCP server binding
+uv sync --extra heal         # + the built-in DSPy drift healer
+uv sync --all-extras         # everything
 ```
+
+(When the package ships to PyPI these become `pip install "graxella[...]"`.)
 
 ---
 

@@ -241,7 +241,7 @@ def _auto_embed_fn() -> Any:
     fn = None
     # The router's embed_fn contract is BATCH: list[str] -> list[vec].
     try:
-        from mnema.adapters.embedder.ollama import OllamaEmbedder
+        from graxella.mnema.adapters.embedder.ollama import OllamaEmbedder
         cand = OllamaEmbedder()
         if cand.health_check():
             _log.info("graxella: routing embedder = %s (dense semantic, "

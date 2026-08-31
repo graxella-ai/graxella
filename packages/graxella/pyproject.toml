@@ -29,19 +29,27 @@ classifiers = [
 dynamic = ["version"]
 
 # Honest dependencies (build plan 0C-1, started in S-3): the Beat 1 surface
-# (Memory, Society, mesh, instrument) imports mnema and agent2society at
-# package import time, and the Promotion Spec runs on pydantic. In the
-# monorepo these resolve to the workspace members below; from PyPI they
-# resolve to published wheels.
+# (Memory, Society, mesh, instrument) imports agent2society at package
+# import time, and the Promotion Spec runs on pydantic.
+#
+# The memory engine (formerly the standalone `mnema` package) now ships
+# INSIDE graxella as `graxella.mnema`. It was folded in deliberately: the
+# name `mnema` on PyPI belongs to an unrelated third-party project, so a
+# dependency on it would have resolved to the wrong package entirely.
+# Folding it in also makes `pip install graxella` a single self-contained
+# artifact with no cross-package version skew.
 dependencies = [
     "pydantic>=2.7",
-    "jsonschema>=4",   # constitution invariant schemas
-    "mnema",
-    "agent2society",
+    "jsonschema>=4",           # constitution invariant schemas
+    "agent2society>=0.5.3,<0.6",
+    # graxella.mnema (the memory engine) loads these at import time --
+    # verified by importing graxella and inspecting sys.modules, not assumed.
+    "pydantic-settings>=2.2",  # graxella.mnema.config
+    "sqlmodel>=0.0.16",        # graxella.mnema.adapters.sqlite.repository
+    "sqlalchemy>=2",           # imported directly by the same repository module
 ]
 
 [tool.uv.sources]
-mnema = { workspace = true }
 agent2society = { workspace = true }
 
 [project.optional-dependencies]
@@ -57,6 +65,23 @@ mcp = [
 ]
 otel = [
     "opentelemetry-api>=1.25",
+]
+# Dense local embeddings for recall + routing without a running Ollama.
+# Lazy-imported, so the core install stays small: graxella.mnema's
+# sentence-transformer embedder only loads when you ask for it.
+embed = [
+    "sentence-transformers>=3.0",
+    "sqlite-vec>=0.1",
+]
+# The built-in drift healer's reasoning engine. DSPy is preferred; the
+# `ollama` client is the zero-litellm fallback the healer uses when DSPy
+# isn't importable, so `heal` stays installable even where DSPy's litellm
+# backend can't unpack (e.g. Windows without long-path support). Neither is
+# a core dependency: the governance layer runs without either -- drift just
+# fails loudly until a healer or a promoted transform exists.
+heal = [
+    "dspy>=3",
+    "ollama>=0.3",
 ]
 examples = [
     "graxella[langgraph,ollama]",
