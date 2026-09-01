@@ -6,7 +6,7 @@
 
 Your agents already work. Can you prove what they changed — and undo it if it was wrong?
 
-[![ci](https://github.com/graxella/graxella/actions/workflows/ci.yml/badge.svg)](https://github.com/graxella/graxella/actions/workflows/ci.yml)
+[![ci](https://github.com/graxella-ai/graxella/actions/workflows/ci.yml/badge.svg)](https://github.com/graxella-ai/graxella/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue)](https://www.python.org)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 

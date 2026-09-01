@@ -7,7 +7,7 @@ short.
 ## Getting set up
 
 ```bash
-git clone https://github.com/graxella/graxella
+git clone https://github.com/graxella-ai/graxella
 cd graxella
 uv sync                      # one venv: graxella + agent2society, editable
 uv run pytest                # the full suite (~290 tests, no LLM needed)

@@ -108,10 +108,10 @@ graxella = "graxella.cli.main:main"
 # old graxella/graxella org 404s -- dead links on a PyPI page read as an
 # abandoned project. Update the owner here if the repo lands elsewhere.
 [project.urls]
-Homepage = "https://github.com/graxella/graxella"
-Source = "https://github.com/graxella/graxella"
-Issues = "https://github.com/graxella/graxella/issues"
-Tutorials = "https://github.com/graxella/graxella/tree/master/tutorials"
+Homepage = "https://github.com/graxella-ai/graxella"
+Source = "https://github.com/graxella-ai/graxella"
+Issues = "https://github.com/graxella-ai/graxella/issues"
+Tutorials = "https://github.com/graxella-ai/graxella/tree/master/tutorials"
 
 [tool.setuptools]
 include-package-data = true
