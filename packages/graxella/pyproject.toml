@@ -111,7 +111,7 @@ graxella = "graxella.cli.main:main"
 Homepage = "https://github.com/graxella-ai/graxella"
 Source = "https://github.com/graxella-ai/graxella"
 Issues = "https://github.com/graxella-ai/graxella/issues"
-Tutorials = "https://github.com/graxella-ai/graxella/tree/master/tutorials"
+Tutorials = "https://github.com/graxella-ai/graxella/tree/main/tutorials"
 
 [tool.setuptools]
 include-package-data = true
