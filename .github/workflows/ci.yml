@@ -26,6 +26,9 @@ jobs:
       - uses: astral-sh/setup-uv@v5
       - run: uv sync
       - run: uv run ruff check --select E9,F63,F7,F82 packages
+      # v0.1.0 shipped a stale package-local README stub as PyPI's
+      # description because nothing checked the two READMEs matched.
+      - run: uv run python scripts/check_readme_sync.py
 
   wheels:
     runs-on: ubuntu-latest

@@ -4,7 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graxella"
-description = "Graph-native intelligence layer for agent runtimes — self-healing tool dispatch, mined rules, PROV-O audit."
+description = "Accountable change-control for agent behavior: repair drift once, gate every promotion on evidence, un-learn what stops working."
+# setuptools refuses a readme path outside the package directory (sdist
+# sandboxing), so this can't just point at the repo-root README directly
+# -- it has to be a same-directory COPY of it, kept in sync by
+# scripts/check_readme_sync.py (wired into CI). v0.1.0 shipped a stale
+# package-local stub here instead of the real README; this file + the
+# sync check exist so that specific mistake can't happen silently again.
 readme = "README.md"
 license = { text = "Apache-2.0" }
 requires-python = ">=3.12"
